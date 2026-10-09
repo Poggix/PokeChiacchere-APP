@@ -1,4 +1,4 @@
-name: Build iOS IPA (Local Spliced Fixed)
+name: Build iOS IPA (Local Spliced Bundle Fixed)
 on:
   workflow_dispatch:
 
@@ -44,6 +44,11 @@ jobs:
 
       - name: Genera la cartella nativa iOS
         run: npx expo prebuild --platform ios --no-install
+
+      - name: Pre-compila il codice React Native (Export Bundle)
+        run: |
+          mkdir -p ios/pokechiacchere/Supporting
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/pokechiacchere/main.jsbundle --assets-dest ios/pokechiacchere
 
       - name: Installa i Pods nativi Apple
         run: |
