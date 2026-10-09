@@ -47,7 +47,7 @@ jobs:
 
       - name: Esegui EAS Build Locale (Genera IPA senza firme Apple)
         env:
-          EXPO_CLI_USERNAME: "Poggix"
+          EXPO_CLI_USERNAME: "poggid"
           EXPO_CLI_PASSWORD: "Poggino11@"
         run: |
           eas login --username "$EXPO_CLI_USERNAME" --password "$EXPO_CLI_PASSWORD"
