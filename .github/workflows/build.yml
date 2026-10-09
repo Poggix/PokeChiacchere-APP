@@ -1,4 +1,4 @@
-name: Build iOS IPA (Local Spliced)
+name: Build iOS IPA (Local Spliced Fixed)
 on:
   workflow_dispatch:
 
@@ -35,8 +35,8 @@ jobs:
             data = JSON.parse(fs.readFileSync('app.json', 'utf8'));
           }
           if (!data.expo) data.expo = {};
-          data.expo.name = data.expo.name || 'PokeChiacchere';
-          data.expo.slug = data.expo.slug || 'pokechiacchere';
+          data.expo.name = 'pokechiacchere';
+          data.expo.slug = 'pokechiacchere';
           if (!data.expo.ios) data.expo.ios = {};
           data.expo.ios.bundleIdentifier = 'com.poggix.pokechiacchere';
           fs.writeFileSync('app.json', JSON.stringify(data, null, 2));
@@ -53,7 +53,7 @@ jobs:
       - name: Compila il file .app (Xcode)
         run: |
           cd ios
-          xcodebuild archive -workspace *.xcworkspace -scheme * -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          xcodebuild archive -workspace pokechiacchere.xcworkspace -scheme pokechiacchere -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
       - name: Genera il pacchetto IPA definitivo
         run: |
