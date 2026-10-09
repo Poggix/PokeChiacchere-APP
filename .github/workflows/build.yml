@@ -1,4 +1,4 @@
-name: Build iOS IPA (Expo Token Fixed)
+name: Build iOS IPA (Expo Bundle ID Fixed)
 on:
   workflow_dispatch:
 
@@ -45,11 +45,25 @@ jobs:
             }
           }' > eas.json
 
+      - name: Forza Bundle Identifier e Inizializza Progetto
+        env:
+          EXPO_TOKEN: "INCOLLA_QUI_IL_TUO_TOKEN_DI_EXPO"
+        run: |
+          # Inietta il bundleIdentifier mancante nel file app.json prima del build
+          node -e "
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            if (!data.expo) data.expo = {};
+            if (!data.expo.ios) data.expo.ios = {};
+            data.expo.ios.bundleIdentifier = 'com.poggix.pokechiacchere';
+            fs.writeFileSync('app.json', JSON.stringify(data, null, 2));
+          "
+          npx eas project:init --force
+
       - name: Esegui EAS Build Locale (Genera IPA)
         env:
-          EXPO_TOKEN: "_qei0vJ2PD47TVK1hx2aWGGJnFmeJcn8Ui9EV9j_"
+          EXPO_TOKEN: "OVszE6SOmOtd04KPGsYDu1ag362GGmKbI-nILaGd"
         run: |
-          npx eas project:init --force
           npx eas build --platform ios --local --profile preview --non-interactive
 
       - name: Carica il file IPA nei download
