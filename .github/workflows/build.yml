@@ -1,4 +1,4 @@
-name: Build iOS IPA (Expo Token)
+name: Build iOS IPA (Expo Token Fixed)
 on:
   workflow_dispatch:
 
@@ -47,9 +47,10 @@ jobs:
 
       - name: Esegui EAS Build Locale (Genera IPA)
         env:
-          EXPO_TOKEN: "5rzjejg5Znf96uMzM99cbpjmlavpJZluIcE69qfP"
+          EXPO_TOKEN: "_qei0vJ2PD47TVK1hx2aWGGJnFmeJcn8Ui9EV9j_"
         run: |
-          eas build --platform ios --local --profile preview --non-interactive
+          npx eas project:init --force
+          npx eas build --platform ios --local --profile preview --non-interactive
 
       - name: Carica il file IPA nei download
         uses: actions/upload-artifact@v4
