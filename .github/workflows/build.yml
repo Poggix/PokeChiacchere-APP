@@ -1,0 +1,43 @@
+name: Build iOS IPA
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scompatta il progetto
+        run: unzip pokechiacchere.zip
+
+      - name: Trova e Compila (Senza Firma)
+        run: |
+          # Cerca il file .xcodeproj o .xcworkspace
+          PROJECT_PATH=$(find . -name "*.xcodeproj" -o -name "*.xcworkspace" | head -n 1)
+          if [ -z "$PROJECT_PATH" ]; then
+            echo "Errore: Progetto Xcode non trovato nello zip!"
+            exit 1
+          fi
+          echo "Progetto trovato in: $PROJECT_PATH"
+          
+          # Determina se usare workspace o project
+          if [[ "$PROJECT_PATH" == *".xcworkspace" ]]; then
+            xcodebuild archive -workspace "$PROJECT_PATH" -scheme "Runner" -archivePath build/App.xcarchive -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
+          else
+            xcodebuild archive -project "$PROJECT_PATH" -scheme "Runner" -archivePath build/App.xcarchive -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
+          fi
+
+      - name: Crea cartella Payload per IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/App.xcarchive/Products/Applications/*.app build/Payload/
+          cd build
+          zip -r PokeChiacchere.ipa Payload
+
+      - name: Carica il file IPA nei download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: build/PokeChiacchere.ipa
