@@ -1,4 +1,4 @@
-name: Build iOS IPA (Expo)
+name: Build iOS IPA (Expo Fixed)
 on:
   workflow_dispatch:
 
@@ -12,7 +12,6 @@ jobs:
       - name: Scompatta il progetto
         run: |
           unzip pokechiacchere.zip
-          # Se lo zip ha creato una sottocartella, sposta i file nella cartella principale
           if [ -d "pokechiacchere" ]; then
             mv pokechiacchere/* .
           fi
@@ -29,6 +28,11 @@ jobs:
 
       - name: Genera la cartella nativa iOS (Prebuild)
         run: npx expo prebuild --platform ios
+
+      - name: Installa Cocoapods e Pods nativi
+        run: |
+          sudo gem install cocoapods
+          cd ios && pod install --repo-update && cd ..
 
       - name: Compila il file .app (Senza Firma)
         run: |
