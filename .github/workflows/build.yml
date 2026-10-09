@@ -1,4 +1,4 @@
-name: Build iOS IPA
+name: Build iOS IPA (Expo)
 on:
   workflow_dispatch:
 
@@ -6,30 +6,36 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Checkout
+      - name: Checkout del codice
         uses: actions/checkout@v4
 
       - name: Scompatta il progetto
-        run: unzip pokechiacchere.zip
-
-      - name: Trova e Compila (Senza Firma)
         run: |
-          # Cerca il file .xcodeproj o .xcworkspace
-          PROJECT_PATH=$(find . -name "*.xcodeproj" -o -name "*.xcworkspace" | head -n 1)
-          if [ -z "$PROJECT_PATH" ]; then
-            echo "Errore: Progetto Xcode non trovato nello zip!"
-            exit 1
-          fi
-          echo "Progetto trovato in: $PROJECT_PATH"
-          
-          # Determina se usare workspace o project
-          if [[ "$PROJECT_PATH" == *".xcworkspace" ]]; then
-            xcodebuild archive -workspace "$PROJECT_PATH" -scheme "Runner" -archivePath build/App.xcarchive -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
-          else
-            xcodebuild archive -project "$PROJECT_PATH" -scheme "Runner" -archivePath build/App.xcarchive -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
+          unzip pokechiacchere.zip
+          # Se lo zip ha creato una sottocartella, sposta i file nella cartella principale
+          if [ -d "pokechiacchere" ]; then
+            mv pokechiacchere/* .
           fi
 
-      - name: Crea cartella Payload per IPA
+      - name: Installa Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Installa le dipendenze di Expo
+        run: |
+          npm install -g expo-cli
+          npm install
+
+      - name: Genera la cartella nativa iOS (Prebuild)
+        run: npx expo prebuild --platform ios
+
+      - name: Compila il file .app (Senza Firma)
+        run: |
+          cd ios
+          xcodebuild archive -workspace *.xcworkspace -scheme * -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Crea il pacchetto IPA finale
         run: |
           mkdir -p build/Payload
           cp -r build/App.xcarchive/Products/Applications/*.app build/Payload/
