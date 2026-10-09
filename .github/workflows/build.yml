@@ -1,4 +1,4 @@
-name: Build iOS IPA (Expo Bundle ID Fixed)
+name: Build iOS IPA (Local Spliced)
 on:
   workflow_dispatch:
 
@@ -21,53 +21,49 @@ jobs:
         with:
           node-version: 18
 
-      - name: Installa EAS CLI e dipendenze
+      - name: Installa le dipendenze
         run: |
-          npm install -g eas-cli
+          npm install -g expo-cli
           npm install
 
-      - name: Configura il profilo locale
+      - name: Inietta configurazioni mancanti
         run: |
-          echo '{
-            "cli": { "version": ">= 10.0.0" },
-            "build": {
-              "development": {
-                "developmentClient": true,
-                "distribution": "internal"
-              },
-              "preview": {
-                "distribution": "internal",
-                "ios": {
-                  "simulator": true
-                }
-              },
-              "production": {}
-            }
-          }' > eas.json
-
-      - name: Forza Bundle Identifier e Inizializza Progetto
-        env:
-          EXPO_TOKEN: "INCOLLA_QUI_IL_TUO_TOKEN_DI_EXPO"
-        run: |
-          # Inietta il bundleIdentifier mancante nel file app.json prima del build
           node -e "
-            const fs = require('fs');
-            const data = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-            if (!data.expo) data.expo = {};
-            if (!data.expo.ios) data.expo.ios = {};
-            data.expo.ios.bundleIdentifier = 'com.poggix.pokechiacchere';
-            fs.writeFileSync('app.json', JSON.stringify(data, null, 2));
+          const fs = require('fs');
+          let data = {};
+          if (fs.existsSync('app.json')) {
+            data = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          }
+          if (!data.expo) data.expo = {};
+          data.expo.name = data.expo.name || 'PokeChiacchere';
+          data.expo.slug = data.expo.slug || 'pokechiacchere';
+          if (!data.expo.ios) data.expo.ios = {};
+          data.expo.ios.bundleIdentifier = 'com.poggix.pokechiacchere';
+          fs.writeFileSync('app.json', JSON.stringify(data, null, 2));
           "
-          npx eas project:init --force
 
-      - name: Esegui EAS Build Locale (Genera IPA)
-        env:
-          EXPO_TOKEN: "OVszE6SOmOtd04KPGsYDu1ag362GGmKbI-nILaGd"
+      - name: Genera la cartella nativa iOS
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Installa i Pods nativi Apple
         run: |
-          npx eas build --platform ios --local --profile preview --non-interactive
+          cd ios
+          pod install --repo-update
 
-      - name: Carica il file IPA nei download
+      - name: Compila il file .app (Xcode)
+        run: |
+          cd ios
+          xcodebuild archive -workspace *.xcworkspace -scheme * -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Genera il pacchetto IPA definitivo
+        run: |
+          mkdir -p build/Payload
+          cp -r build/App.xcarchive/Products/Applications/*.app build/Payload/
+          cd build
+          zip -r PokeChiacchere.ipa Payload
+
+      - name: Carica l'IPA negli Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
-          path: ./*.ipa
+          path: build/PokeChiacchere.ipa
