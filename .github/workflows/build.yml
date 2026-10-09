@@ -46,7 +46,12 @@ jobs:
           }' > eas.json
 
       - name: Esegui EAS Build Locale (Genera IPA senza firme Apple)
-        run: eas build --platform ios --local --profile preview --non-interactive
+        env:
+          EXPO_CLI_USERNAME: "Poggix"
+          EXPO_CLI_PASSWORD: "Poggino11@"
+        run: |
+          eas login --username "$EXPO_CLI_USERNAME" --password "$EXPO_CLI_PASSWORD"
+          eas build --platform ios --local --profile preview --non-interactive
 
       - name: Carica il file IPA nei download
         uses: actions/upload-artifact@v4
