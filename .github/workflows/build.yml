@@ -1,4 +1,4 @@
-name: Build iOS IPA (Expo Fixed)
+name: Build iOS IPA (Expo Official CLI)
 on:
   workflow_dispatch:
 
@@ -21,33 +21,35 @@ jobs:
         with:
           node-version: 18
 
-      - name: Installa le dipendenze di Expo
+      - name: Installa EAS CLI e dipendenze
         run: |
-          npm install -g expo-cli
+          npm install -g eas-cli
           npm install
 
-      - name: Genera la cartella nativa iOS (Prebuild)
-        run: npx expo prebuild --platform ios
-
-      - name: Installa Cocoapods e Pods nativi
+      - name: Configura il profilo locale
         run: |
-          sudo gem install cocoapods
-          cd ios && pod install --repo-update && cd ..
+          echo '{
+            "cli": { "version": ">= 10.0.0" },
+            "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal"
+              },
+              "preview": {
+                "distribution": "internal",
+                "ios": {
+                  "simulator": true
+                }
+              },
+              "production": {}
+            }
+          }' > eas.json
 
-      - name: Compila il file .app (Senza Firma)
-        run: |
-          cd ios
-          xcodebuild archive -workspace pokechiacchere.xcworkspace -scheme pokechiacchere -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-
-      - name: Crea il pacchetto IPA finale
-        run: |
-          mkdir -p build/Payload
-          cp -r build/App.xcarchive/Products/Applications/*.app build/Payload/
-          cd build
-          zip -r PokeChiacchere.ipa Payload
+      - name: Esegui EAS Build Locale (Genera IPA senza firme Apple)
+        run: eas build --platform ios --local --profile preview --non-interactive
 
       - name: Carica il file IPA nei download
         uses: actions/upload-artifact@v4
         with:
           name: ios-app
-          path: build/PokeChiacchere.ipa
+          path: ./*.ipa
