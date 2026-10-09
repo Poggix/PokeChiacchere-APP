@@ -1,53 +1,79 @@
-name: Build iOS IPA (Final PC Snack)
+
+name: Build PokeChiacchere IPA
+
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout del codice
+      - name: Scarica il repository
         uses: actions/checkout@v4
 
-      - name: Scompatta il progetto
-        run: |
-          unzip pokechiacchere.zip
-          if [ -d "pokechiacchere" ]; then
-            mv pokechiacchere/* .
-          fi
-
-      - name: Installa Node.js
+      - name: Configura Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
+          cache: npm
 
       - name: Installa le dipendenze
-        run: |
-          npm install -g expo-cli
-          npm install
+        run: npm ci
 
-      - name: Genera la cartella nativa iOS
+      - name: Genera il progetto iOS
         run: npx expo prebuild --platform ios --no-install
 
-      - name: Installa i Pods nativi Apple
+      - name: Installa CocoaPods
         run: |
           cd ios
-          pod install --repo-update
+          pod install
 
-      - name: Compila il file .app (Xcode)
+      - name: Compila l'app iOS senza firma
         run: |
-          cd ios
-          xcodebuild archive -workspace pokechiacchere.xcworkspace -scheme pokechiacchere -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -print -quit)
 
-      - name: Genera il pacchetto IPA definitivo
+          if [ -z "$WORKSPACE" ]; then
+            echo "Errore: workspace Xcode non trovato"
+            exit 1
+          fi
+
+          SCHEME=$(xcodebuild -list -json -workspace "$WORKSPACE" | jq -r '.workspace.schemes[] | select(ascii_downcase == "pokechiacchere")' | head -n 1)
+
+          if [ -z "$SCHEME" ]; then
+            echo "Errore: schema PokeChiacchere non trovato"
+            xcodebuild -list -workspace "$WORKSPACE"
+            exit 1
+          fi
+
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Crea l'archivio IPA
         run: |
-          mkdir -p build/Payload
-          cp -r build/App.xcarchive/Products/Applications/*.app build/Payload/
-          cd build
-          zip -r PokeChiacchere.ipa Payload
+          APP_PATH=$(find "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos" -maxdepth 1 -name "*.app" -print -quit)
 
-      - name: Carica l'IPA negli Artifacts
+          if [ -z "$APP_PATH" ]; then
+            echo "Errore: applicazione compilata non trovata"
+            exit 1
+          fi
+
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry "$GITHUB_WORKSPACE/PokeChiacchere.ipa" Payload
+
+      - name: Carica l'IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ios-app
-          path: build/PokeChiacchere.ipa
+          name: PokeChiacchere-IPA
+          path: PokeChiacchere.ipa
+          if-no-files-found: error
