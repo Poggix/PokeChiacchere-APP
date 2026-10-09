@@ -1,4 +1,4 @@
-name: Build iOS IPA (Expo Official CLI)
+name: Build iOS IPA (Expo Token)
 on:
   workflow_dispatch:
 
@@ -45,12 +45,10 @@ jobs:
             }
           }' > eas.json
 
-      - name: Esegui EAS Build Locale (Genera IPA senza firme Apple)
+      - name: Esegui EAS Build Locale (Genera IPA)
         env:
-          EXPO_CLI_USERNAME: "poggid"
-          EXPO_CLI_PASSWORD: "Poggino11@"
+          EXPO_TOKEN: "5rzjejg5Znf96uMzM99cbpjmlavpJZluIcE69qfP"
         run: |
-          eas login --username "$EXPO_CLI_USERNAME" --password "$EXPO_CLI_PASSWORD"
           eas build --platform ios --local --profile preview --non-interactive
 
       - name: Carica il file IPA nei download
