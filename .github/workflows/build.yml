@@ -33,7 +33,7 @@ jobs:
       - name: Compila il file .app (Senza Firma)
         run: |
           cd ios
-          xcodebuild archive -workspace *.xcworkspace -scheme * -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+          xcodebuild archive -workspace pokechiacchere.xcworkspace -scheme pokechiacchere -archivePath ../build/App.xcarchive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
       - name: Crea il pacchetto IPA finale
         run: |
