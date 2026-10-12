@@ -2856,7 +2856,7 @@ export default function App() {
           </View>
           <Field label="Nome" value={profileFirstName} onChangeText={setProfileFirstName} placeholder="Il tuo nome" />
           <Field label="Cognome" value={profileLastName} onChangeText={setProfileLastName} placeholder="Il tuo cognome" />
-          <Text style={s.fieldLabel}>Foto profilo</Text>
+          <Text style={{ color: C.muted, fontSize: 12, fontWeight: '800', marginBottom: 8 }}>Foto profilo</Text>
           <Button title={profilePhotoUploading ? 'Caricamento foto...' : 'Scegli foto da File, Rullino o Fotocamera'} type="secondary" onPress={openProfilePhotoOptions} />
           {profilePhotoUrl ? <Text style={s.mutedSmall}>Foto selezionata. Premi “Salva profilo” per sincronizzarla.</Text> : <Text style={s.mutedSmall}>Puoi scegliere un'immagine dai file, dal rullino oppure scattarne una nuova.</Text>}
           <Button title={profileSaving ? 'Salvataggio...' : 'Salva profilo'} onPress={saveMemberProfile} />
