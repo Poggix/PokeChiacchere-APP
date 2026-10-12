@@ -997,6 +997,8 @@ export default function App() {
       ? { icon: '↗', color: C.green, label: 'VENDITE' }
       : t.includes('acquist')
       ? { icon: '▤', color: C.yellow, label: 'ACQUISTI' }
+      : t.includes('magazzin')
+      ? { icon: '●', color: C.green, label: 'MAGAZZINO' }
       : t.includes('client') || t.includes('archivio')
       ? { icon: '♙', color: '#C39BFF', label: 'ANAGRAFICHE' }
       : t.includes('preliev') || t.includes('soci') || t.includes('pagament')
@@ -1035,6 +1037,158 @@ export default function App() {
 
   function section(title) {
     return <Text style={s.sectionTitle}>{title}</Text>;
+  }
+
+  function renderInventory() {
+    // Calcolo FIFO: ogni acquisto resta un lotto separato, anche se il prodotto
+    // è stato comprato a prezzi unitari diversi. Le vendite scaricano prima i lotti più vecchi.
+    const purchases = [...(records.purchases || [])].sort(
+      (a, b) =>
+        dateSortValue(a.purchase_date || a.created_at) -
+        dateSortValue(b.purchase_date || b.created_at)
+    );
+    const sales = [...(records.sales || [])].sort(
+      (a, b) =>
+        dateSortValue(a.sale_date || a.created_at) -
+        dateSortValue(b.sale_date || b.created_at)
+    );
+    const groups = new Map();
+
+    purchases.forEach((purchase) => {
+      const product = String(purchase.product || '').trim();
+      const key = product.toLocaleLowerCase('it');
+      const quantity = Math.max(0, num(purchase.quantity));
+      if (!product || quantity <= 0) return;
+      if (!groups.has(key)) groups.set(key, { product, lots: [] });
+      groups.get(key).lots.push({
+        id: purchase.id || `${key}-${purchase.purchase_date || purchase.created_at || ''}-${purchase.unit_price}`,
+        date: purchase.purchase_date || purchase.created_at,
+        buyer: purchase.buyer || '',
+        unitPrice: num(purchase.unit_price),
+        purchased: quantity,
+        remaining: quantity,
+      });
+    });
+
+    sales.forEach((sale) => {
+      const key = String(sale.product || '').trim().toLocaleLowerCase('it');
+      let toRemove = Math.max(0, num(sale.quantity));
+      const group = groups.get(key);
+      if (!group || toRemove <= 0) return;
+      for (const lot of group.lots) {
+        if (toRemove <= 0) break;
+        const removed = Math.min(lot.remaining, toRemove);
+        lot.remaining -= removed;
+        toRemove -= removed;
+      }
+    });
+
+    const stockedProducts = [...groups.values()]
+      .map((group) => ({
+        ...group,
+        lots: group.lots.filter((lot) => lot.remaining > 0.000001),
+      }))
+      .filter((group) => group.lots.length > 0)
+      .sort((a, b) => a.product.localeCompare(b.product, 'it'));
+    const totalUnits = stockedProducts.reduce(
+      (sum, group) => sum + group.lots.reduce((n, lot) => n + lot.remaining, 0),
+      0
+    );
+    const totalValue = stockedProducts.reduce(
+      (sum, group) =>
+        sum + group.lots.reduce((n, lot) => n + lot.remaining * lot.unitPrice, 0),
+      0
+    );
+
+    return (
+      <>
+        {header('Magazzino', 'Giacenze aggiornate da acquisti e vendite')}
+        <View style={s.grid}>
+          <Card
+            title="Prodotti disponibili"
+            value={stockedProducts.length}
+            color={C.green}
+            subtitle="Articoli con quantità residua"
+          />
+          <Card
+            title="Pezzi in magazzino"
+            value={totalUnits}
+            color={C.green}
+            subtitle="Quantità residua totale"
+          />
+          <Card
+            title="Valore del magazzino"
+            value={totalValue}
+            color={C.green}
+            subtitle="Calcolato al costo d'acquisto"
+          />
+        </View>
+        <View style={s.panel}>
+          <Text style={[s.sectionTitle, { color: C.green, marginTop: 0 }]}>
+            ● GIACENZE DISPONIBILI
+          </Text>
+          <Text style={s.mutedText}>
+            Il calcolo usa il criterio FIFO: le vendite scalano prima gli acquisti più vecchi.
+            Ogni lotto mantiene il proprio prezzo d'acquisto.
+          </Text>
+        </View>
+        {stockedProducts.map((group) => {
+          const quantity = group.lots.reduce((sum, lot) => sum + lot.remaining, 0);
+          const value = group.lots.reduce(
+            (sum, lot) => sum + lot.remaining * lot.unitPrice,
+            0
+          );
+          return (
+            <View key={group.product.toLocaleLowerCase('it')} style={s.panel}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.recordTitle}>{group.product}</Text>
+                  <Text style={s.recordSub}>
+                    {group.lots.length} {group.lots.length === 1 ? 'lotto' : 'lotti'} ancora disponibili
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: C.green, fontWeight: '900', fontSize: 17 }}>
+                    {quantity.toLocaleString('it-IT')} pz
+                  </Text>
+                  <Text style={s.recordSub}>{money(value)}</Text>
+                </View>
+              </View>
+              {group.lots.map((lot, index) => (
+                <View
+                  key={String(lot.id) + '-' + index}
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: C.panel2,
+                    borderLeftWidth: 3,
+                    borderLeftColor: C.green,
+                  }}>
+                  <Text style={s.recordTitle}>
+                    {lot.remaining.toLocaleString('it-IT')} pz × {money(lot.unitPrice)}
+                  </Text>
+                  <Text style={s.recordSub}>
+                    Valore residuo: {money(lot.remaining * lot.unitPrice)}
+                    {lot.date ? ` · Acquisto: ${toItalianDate(lot.date)}` : ''}
+                  </Text>
+                  {!!lot.buyer && (
+                    <Text style={s.recordSub}>Pagato da: {lot.buyer}</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          );
+        })}
+        {!stockedProducts.length && (
+          <View style={s.panel}>
+            <Text style={s.empty}>
+              Nessuna giacenza disponibile. Registra gli acquisti e le vendite per calcolare il magazzino.
+            </Text>
+          </View>
+        )}
+      </>
+    );
   }
 
   function renderNotifications() {
@@ -2548,7 +2702,7 @@ export default function App() {
     );
   }
 
-  function navItem(title, icon, target) {
+  function navItem(title, icon, target, accentColor = C.cyan) {
     const active =
       page === target ||
       (target === 'payments' && page === 'paymentForm') ||
@@ -2559,8 +2713,8 @@ export default function App() {
         key={target}
         style={s.navItem}
         onPress={() => setPage(target)}>
-        <Text style={[s.navIcon, active && { color: C.cyan }]}>{icon}</Text>
-        <Text style={[s.navLabel, active && { color: C.cyan }]}>{title}</Text>
+        <Text style={[s.navIcon, active && { color: accentColor }]}>{icon}</Text>
+        <Text style={[s.navLabel, active && { color: accentColor }]}>{title}</Text>
       </TouchableOpacity>
     );
   }
@@ -2610,6 +2764,7 @@ export default function App() {
 
   let content;
   if (page === 'home') content = renderHome();
+  else if (page === 'inventory') content = renderInventory();
   else if (page === 'notifications' && isOwner) content = renderNotifications();
   else if (page === 'saleForm') content = renderSaleForm();
   else if (page === 'purchaseForm') content = renderPurchaseForm();
@@ -2670,6 +2825,7 @@ export default function App() {
         {navItem('Acquisti', '▤', 'purchases')}
         {navItem('Soci', '⇄', 'payments')}
         {navItem('Archivio', '▦', 'products')}
+        {navItem('Magazzino', '●', 'inventory', C.green)}
       </View>
 
       {pickerModal()}
