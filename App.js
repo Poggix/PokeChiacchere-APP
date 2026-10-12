@@ -1975,27 +1975,6 @@ export default function App() {
           </View>
         )}
         <View style={s.panel}>
-          <Text style={s.label}>Posizione del nome nell'elenco</Text>
-          <View style={s.filterRow}>
-            {['top', 'center', 'bottom'].map((pos) => (
-              <TouchableOpacity
-                key={pos}
-                style={[s.chip, namePosition === pos && s.chipActive]}
-                onPress={() => setNamePosition(pos)}>
-                <Text
-                  style={[
-                    s.chipText,
-                    namePosition === pos && s.chipTextActive,
-                  ]}>
-                  {pos === 'top'
-                    ? 'Alto'
-                    : pos === 'center'
-                    ? 'Centro'
-                    : 'Basso'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
           <Field
             label={isProduct ? 'Nome prodotto' : 'Nome e cognome'}
             value={form.name}
