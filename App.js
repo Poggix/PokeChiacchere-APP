@@ -2727,7 +2727,7 @@ export default function App() {
       setActivityLogs(Array.isArray(data) ? data : []);
     } catch (e) {
       Alert.alert(
-        'Registro attività',
+        'Log',
         `Non riesco a caricare il registro. Verifica di aver eseguito lo script SQL in Supabase.\n\n${e.message}`
       );
     } finally {
@@ -2807,7 +2807,7 @@ export default function App() {
           {!profiles.length && <Text style={s.mutedSmall}>Nessun profilo trovato. Ogni socio deve salvare il profilo una prima volta.</Text>}
         </View>
         <View style={s.panel}>
-          <Text style={s.panelTitle}>Registro attività</Text>
+          <Text style={s.panelTitle}>Log</Text>
           <Text style={s.mutedSmall}>Consulta chi ha creato, modificato o eliminato registrazioni, con data, ora e confronto dettagliato dei campi.</Text>
           <Button title="Apri registro attività" onPress={openActivityLog} />
         </View>
@@ -2848,7 +2848,7 @@ export default function App() {
     return (
       <>
         {header(
-          'Registro attività',
+          'Log',
           'Anteprime compatte · Tocca un evento per i dettagli'
         )}
         <Button
@@ -2965,7 +2965,7 @@ export default function App() {
       return (
         <>
           <Button
-            title="← Registro attività"
+            title="← Log"
             type="secondary"
             onPress={() => setPage('activityLog')}
           />
