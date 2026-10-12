@@ -169,6 +169,8 @@ function Card({ title, value, color = C.cyan, subtitle, valueFormat = 'money' })
       ? `${Number(value || 0).toLocaleString('it-IT', { maximumFractionDigits: 2 })} pz`
       : valueFormat === 'types'
       ? Number(value || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
+      : valueFormat === 'text'
+      ? String(value || 'Nessun dato')
       : money(value);
 
   return (
@@ -1194,6 +1196,27 @@ export default function App() {
       0
     );
 
+    // Prodotto con il maggior utile cumulativo sulle vendite registrate.
+    // Usa utile netto dopo imposta forfettaria, coerentemente con il riepilogo generale.
+    const profitByProduct = new Map();
+    (records.sales || []).forEach((sale) => {
+      const product = String(sale.product || '').trim();
+      if (!product) return;
+      const key = product.toLocaleLowerCase('it');
+      const saleTotal = num(sale.total_sale || num(sale.quantity) * num(sale.unit_price || sale.sale_unit_price));
+      const cost = num(sale.product_cost ?? num(sale.quantity) * num(sale.purchase_unit_cost));
+      const fees = num(sale.tiktok_fees);
+      const shipping = num(sale.shipping_cost);
+      const other = num(sale.other_costs);
+      const tax = num(sale.flat_tax ?? saleTotal * 0.02);
+      const profit = saleTotal - fees - shipping - other - cost - tax;
+      const current = profitByProduct.get(key) || { product, profit: 0 };
+      current.profit += profit;
+      profitByProduct.set(key, current);
+    });
+    const topProfitProduct = [...profitByProduct.values()]
+      .sort((a, b) => b.profit - a.profit)[0];
+
     return (
       <>
         {header('Magazzino', 'Giacenze aggiornate da acquisti e vendite')}
@@ -1217,6 +1240,15 @@ export default function App() {
             value={totalValue}
             color={C.green}
             subtitle="Calcolato al costo d'acquisto"
+          />
+          <Card
+            title="Prodotto con più utile"
+            value={topProfitProduct?.product || 'Nessun dato'}
+            valueFormat="text"
+            color={C.green}
+            subtitle={topProfitProduct
+              ? `Utile netto totale: ${money(topProfitProduct.profit)}`
+              : 'Registra una vendita per vedere il prodotto più redditizio'}
           />
         </View>
         <View style={s.panel}>
