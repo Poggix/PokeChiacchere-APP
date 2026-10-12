@@ -188,6 +188,7 @@ export default function App() {
   const [sessionReady, setSessionReady] = useState(false);
   const [listSearch, setListSearch] = useState('');
   const [sortMode, setSortMode] = useState('date_desc');
+  const [showSortFilters, setShowSortFilters] = useState(false);
   const [listView, setListView] = useState('details');
   const [namePosition, setNamePosition] = useState('center');
   const [email, setEmail] = useState('');
@@ -2353,27 +2354,36 @@ export default function App() {
             onChangeText={setListSearch}
             placeholder="Scrivi per filtrare…"
           />
-          <Text style={s.label}>Ordina per</Text>
-          <View style={s.filterWrap}>
-            {[
-              ['date_desc', 'Data ↓'],
-              ['date_asc', 'Data ↑'],
-              ['name_asc', 'Nome A-Z'],
-              ['name_desc', 'Nome Z-A'],
-              ['price_asc', 'Prezzo ↑'],
-              ['price_desc', 'Prezzo ↓'],
-            ].map(([value, label]) => (
-              <TouchableOpacity
-                key={value}
-                style={[s.chip, sortMode === value && s.chipActive]}
-                onPress={() => setSortMode(value)}>
-                <Text
-                  style={[s.chipText, sortMode === value && s.chipTextActive]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={[s.chip, showSortFilters && s.chipActive, { alignSelf: 'flex-start', marginTop: 12 }]}
+            onPress={() => setShowSortFilters((visible) => !visible)}>
+            <Text style={[s.chipText, showSortFilters && s.chipTextActive]}>
+              {showSortFilters ? '⌃ Nascondi filtri' : '☷ Filtri e ordinamento'}
+            </Text>
+          </TouchableOpacity>
+          {showSortFilters && (
+            <View style={{ marginTop: 10 }}>
+              <Text style={s.label}>Ordina per</Text>
+              <View style={s.filterWrap}>
+                {[
+                  ['name_asc', 'Nome A-Z'],
+                  ['date_desc', 'Data più recente'],
+                  ['date_asc', 'Data meno recente'],
+                  ['price_desc', 'Prezzo più alto'],
+                  ['price_asc', 'Prezzo più basso'],
+                ].map(([value, label]) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={[s.chip, sortMode === value && s.chipActive]}
+                    onPress={() => setSortMode(value)}>
+                    <Text style={[s.chipText, sortMode === value && s.chipTextActive]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
           <Text style={[s.label, { marginTop: 12 }]}>Visualizzazione</Text>
           <View style={s.filterRow}>
             {['details', 'list'].map((value) => (
