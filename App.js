@@ -213,7 +213,81 @@ export default function App() {
     !!session?.user?.id &&
     OWNER_USER_ID !== 'INSERISCI_UUID_TUO_ACCOUNT' &&
     session.user.id === OWNER_USER_ID;
-  const change = (key, value) => setForm((old) => ({ ...old, [key]: value }));
+  function getFifoSaleCost(productName, requestedQuantity, excludedSaleId = null) {
+    const productKey = String(productName || '').trim().toLocaleLowerCase('it');
+    const quantityNeeded = Math.max(0, num(requestedQuantity));
+    if (!productKey || quantityNeeded <= 0) return { totalCost: 0, unitCost: 0, available: 0 };
+
+    const lots = [...(records.purchases || [])]
+      .filter((purchase) =>
+        String(purchase.product || '').trim().toLocaleLowerCase('it') === productKey
+      )
+      .sort((a, b) =>
+        dateSortValue(a.purchase_date || a.created_at) -
+        dateSortValue(b.purchase_date || b.created_at)
+      )
+      .map((purchase) => ({
+        quantity: Math.max(0, num(purchase.quantity)),
+        remaining: Math.max(0, num(purchase.quantity)),
+        unitPrice: Math.max(0, num(purchase.unit_price)),
+      }));
+
+    const previousSales = [...(records.sales || [])]
+      .filter((sale) =>
+        String(sale.product || '').trim().toLocaleLowerCase('it') === productKey &&
+        !(excludedSaleId && String(sale.id) === String(excludedSaleId))
+      )
+      .sort((a, b) =>
+        dateSortValue(a.sale_date || a.created_at) -
+        dateSortValue(b.sale_date || b.created_at)
+      );
+
+    previousSales.forEach((sale) => {
+      let remainingToDeduct = Math.max(0, num(sale.quantity));
+      for (const lot of lots) {
+        if (remainingToDeduct <= 0) break;
+        const used = Math.min(lot.remaining, remainingToDeduct);
+        lot.remaining -= used;
+        remainingToDeduct -= used;
+      }
+    });
+
+    const available = lots.reduce((sum, lot) => sum + lot.remaining, 0);
+    let toCost = Math.min(quantityNeeded, available);
+    let totalCost = 0;
+    for (const lot of lots) {
+      if (toCost <= 0) break;
+      const used = Math.min(lot.remaining, toCost);
+      totalCost += used * lot.unitPrice;
+      toCost -= used;
+    }
+    return {
+      totalCost,
+      unitCost: quantityNeeded > 0 ? totalCost / quantityNeeded : 0,
+      available,
+    };
+  }
+
+  const change = (key, value) => {
+    setForm((old) => {
+      const next = { ...old, [key]: value };
+      if (page === 'saleForm' && ['product', 'quantity'].includes(key)) {
+        const productName = key === 'product' ? value : next.product;
+        const qty = key === 'quantity' ? value : next.quantity;
+        const result = getFifoSaleCost(
+          productName,
+          qty,
+          editing?.table === 'sales' ? editing.id : null
+        );
+        next.purchase_unit_cost = num(qty) > 0
+          ? String(Number(result.unitCost.toFixed(4)))
+          : '0';
+        next._available_stock = result.available;
+        next._calculated_product_cost = result.totalCost;
+      }
+      return next;
+    });
+  };
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -680,10 +754,23 @@ export default function App() {
     const quantity = num(form.quantity);
     const price = num(form.unit_price);
     const total = quantity * price;
-    const productCost = quantity * num(form.purchase_unit_cost);
+    const fifoCost = getFifoSaleCost(
+      product,
+      quantity,
+      editing?.table === 'sales' ? editing.id : null
+    );
+    const productCost = fifoCost.totalCost;
+    const availableStock = fifoCost.available;
 
     if (!product || quantity <= 0 || price < 0) {
       Alert.alert('Dati mancanti', 'Controlla prodotto, quantità e prezzo.');
+      return;
+    }
+    if (quantity > availableStock + 0.000001) {
+      Alert.alert(
+        'Giacenza insufficiente',
+        `Hai ${availableStock.toLocaleString('it-IT')} pezzi disponibili di "${product}", ma stai registrando una vendita di ${quantity.toLocaleString('it-IT')}. Registra prima gli acquisti mancanti o correggi la quantità.`
+      );
       return;
     }
 
@@ -708,7 +795,7 @@ export default function App() {
         tiktok_fees: num(form.fees),
         shipping_cost: num(form.shipping_cost),
         other_costs: num(form.other_costs),
-        purchase_unit_cost: num(form.purchase_unit_cost),
+        purchase_unit_cost: quantity > 0 ? productCost / quantity : 0,
         product_cost: productCost,
         net_profit:
           total -
@@ -1497,9 +1584,34 @@ export default function App() {
             onChangeText={(v) => change('other_costs', v)}
             keyboardType="decimal-pad"
           />
+          <View style={s.summary}>
+            <Text style={s.summaryLine}>
+              Costo merce automatico: {money(getFifoSaleCost(
+                form.product,
+                form.quantity,
+                editing?.table === 'sales' ? editing.id : null
+              ).totalCost)}
+            </Text>
+            <Text style={s.mutedText}>
+              Calcolato dai lotti ancora disponibili in magazzino, in ordine FIFO, indipendentemente dal socio che ha pagato l'acquisto.
+            </Text>
+            {num(form.quantity) > getFifoSaleCost(
+              form.product,
+              form.quantity,
+              editing?.table === 'sales' ? editing.id : null
+            ).available + 0.000001 && (
+              <Text style={{ color: C.red, fontSize: 12, marginTop: 8 }}>
+                Attenzione: quantità superiore alla giacenza disponibile.
+              </Text>
+            )}
+          </View>
           <Field
-            label="Costo unitario merce (€)"
-            value={form.purchase_unit_cost}
+            label="Costo unitario merce (€) — automatico"
+            value={String(Number(getFifoSaleCost(
+              form.product,
+              form.quantity,
+              editing?.table === 'sales' ? editing.id : null
+            ).unitCost.toFixed(4)))}
             onChangeText={(v) => change('purchase_unit_cost', v)}
             keyboardType="decimal-pad"
           />
