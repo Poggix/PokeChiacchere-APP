@@ -163,12 +163,19 @@ function DropDown({ label, value, onPress, hint }) {
   );
 }
 
-function Card({ title, value, color = C.cyan, subtitle }) {
+function Card({ title, value, color = C.cyan, subtitle, valueFormat = 'money' }) {
+  const displayValue =
+    valueFormat === 'pieces'
+      ? `${Number(value || 0).toLocaleString('it-IT', { maximumFractionDigits: 2 })} pz`
+      : valueFormat === 'types'
+      ? Number(value || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })
+      : money(value);
+
   return (
     <View style={s.metric}>
       <View style={[s.metricLine, { backgroundColor: color }]} />
       <Text style={s.metricLabel}>{title}</Text>
-      <Text style={s.metricValue}>{money(value)}</Text>
+      <Text style={s.metricValue}>{displayValue}</Text>
       {!!subtitle && <Text style={s.mutedSmall}>{subtitle}</Text>}
     </View>
   );
@@ -1192,16 +1199,18 @@ export default function App() {
         {header('Magazzino', 'Giacenze aggiornate da acquisti e vendite')}
         <View style={s.grid}>
           <Card
-            title="Prodotti disponibili"
+            title="Tipologie di prodotti"
             value={stockedProducts.length}
+            valueFormat="types"
             color={C.green}
-            subtitle="Articoli con quantità residua"
+            subtitle="Numero di articoli diversi ancora disponibili"
           />
           <Card
-            title="Pezzi in magazzino"
+            title="Pezzi totali in magazzino"
             value={totalUnits}
+            valueFormat="pieces"
             color={C.green}
-            subtitle="Quantità residua totale"
+            subtitle="Somma di tutte le quantità residue"
           />
           <Card
             title="Valore del magazzino"
