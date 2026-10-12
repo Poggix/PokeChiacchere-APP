@@ -1,0 +1,13 @@
+
+{
+  "expo": {
+    "name": "PokeChiacchere",
+    "slug": "pokechiacchere",
+    "version": "2.0.0",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "icon": "./assets/icon.png",
+      "buildNumber": "2"
+    }
+  }
+}
