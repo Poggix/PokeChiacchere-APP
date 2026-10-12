@@ -1921,7 +1921,7 @@ export default function App() {
 
     return (
       <>
-        {header('Archivio', 'Clienti e prodotti salvati')}
+        {header('Archivio', isProduct ? 'Nomi prodotti salvati' : 'Clienti salvati')}
         <View style={s.filterRow}>
           <TouchableOpacity
             style={[s.chip, isProduct && s.chipActive]}
@@ -1945,7 +1945,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
         <TouchableOpacity
-          style={[s.chip, archiveFiltersOpen && s.chipActive, { alignSelf: 'flex-start', marginTop: 12, marginBottom: 10 }]}
+          style={[s.chip, archiveFiltersOpen && s.chipActive, { alignSelf: 'flex-start', marginTop: 12, marginBottom: 12 }]}
           onPress={() => setArchiveFiltersOpen((visible) => !visible)}>
           <Text style={[s.chipText, archiveFiltersOpen && s.chipTextActive]}>
             {archiveFiltersOpen ? '⌃ Nascondi filtri' : '☷ Filtri e ordinamento'}
