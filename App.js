@@ -626,7 +626,7 @@ export default function App() {
           }),
         }).catch(() => {});
       }
-    }, 60000);
+    }, 15000);
     const subscription = AppState.addEventListener('change', (state) => {
       api('/rest/v1/member_presence?on_conflict=user_id', token, {
         method: 'POST',
@@ -645,6 +645,16 @@ export default function App() {
       subscription.remove();
     };
   }, [token, session?.user?.id, loadProfilesAndPresence]);
+
+  // Nella schermata Impostazioni aggiorna frequentemente lo stato degli altri soci.
+  useEffect(() => {
+    if (!token || !session?.user?.id || page !== 'settings') return;
+    loadProfilesAndPresence();
+    const presenceRefresh = setInterval(() => {
+      if (AppState.currentState === 'active') loadProfilesAndPresence();
+    }, 5000);
+    return () => clearInterval(presenceRefresh);
+  }, [page, token, session?.user?.id, loadProfilesAndPresence]);
 
   useEffect(() => {
     let active = true;
