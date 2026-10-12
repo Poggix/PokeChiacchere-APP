@@ -10,7 +10,15 @@
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
       "icon": "./assets/icon.png",
-      "buildNumber": "4"
+      "buildNumber": "4",
+      "entitlements": {
+        "aps-environment": "development"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1174ee6b-3282-4a57-8930-ce6d145be04e"
+      }
     }
   }
 }
