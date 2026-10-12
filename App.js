@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
 import {
   ActivityIndicator,
@@ -215,6 +216,7 @@ export default function App() {
   const [profileFirstName, setProfileFirstName] = useState('');
   const [profileLastName, setProfileLastName] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profiles, setProfiles] = useState([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
@@ -2745,6 +2747,69 @@ export default function App() {
     }
   }
 
+  async function uploadProfilePhoto(uri, mimeType = 'image/jpeg') {
+    if (!token || !session?.user?.id) return;
+    setProfilePhotoUploading(true);
+    try {
+      const localResponse = await fetch(uri);
+      const blob = await localResponse.blob();
+      const extension = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
+      const objectPath = `${session.user.id}/avatar-${Date.now()}.${extension}`;
+      const uploadResponse = await fetch(`${URL}/storage/v1/object/profile-photos/${objectPath}`, {
+        method: 'POST',
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': mimeType,
+          'x-upsert': 'true',
+        },
+        body: blob,
+      });
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        throw new Error(errorText || 'Caricamento foto non riuscito');
+      }
+      setProfilePhotoUrl(`${URL}/storage/v1/object/public/profile-photos/${objectPath}`);
+      Alert.alert('Foto caricata', 'Ricordati di premere “Salva profilo” per renderla visibile agli altri soci.');
+    } catch (e) {
+      Alert.alert('Errore foto', 'Controlla la configurazione dello storage Supabase e riprova. ' + e.message);
+    } finally {
+      setProfilePhotoUploading(false);
+    }
+  }
+
+  async function chooseProfilePhoto(source) {
+    try {
+      let result;
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permesso fotocamera', 'Consenti l’accesso alla fotocamera nelle impostazioni del dispositivo.');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+      } else if (source === 'files') {
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+      } else {
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+      }
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      const asset = result.assets[0];
+      await uploadProfilePhoto(asset.uri, asset.mimeType || 'image/jpeg');
+    } catch (e) {
+      Alert.alert('Impossibile scegliere la foto', e.message);
+    }
+  }
+
+  function openProfilePhotoOptions() {
+    Alert.alert('Foto profilo', 'Scegli da dove caricare la foto', [
+      { text: 'Fotocamera', onPress: () => chooseProfilePhoto('camera') },
+      { text: 'Rullino foto', onPress: () => chooseProfilePhoto('library') },
+      { text: 'File', onPress: () => chooseProfilePhoto('files') },
+      { text: 'Annulla', style: 'cancel' },
+    ]);
+  }
+
   async function saveMemberProfile() {
     if (!token || !session?.user?.id) return;
     setProfileSaving(true);
@@ -2791,7 +2856,9 @@ export default function App() {
           </View>
           <Field label="Nome" value={profileFirstName} onChangeText={setProfileFirstName} placeholder="Il tuo nome" />
           <Field label="Cognome" value={profileLastName} onChangeText={setProfileLastName} placeholder="Il tuo cognome" />
-          <Field label="URL foto profilo" value={profilePhotoUrl} onChangeText={setProfilePhotoUrl} placeholder="https://..." />
+          <Text style={s.fieldLabel}>Foto profilo</Text>
+          <Button title={profilePhotoUploading ? 'Caricamento foto...' : 'Scegli foto da File, Rullino o Fotocamera'} type="secondary" onPress={openProfilePhotoOptions} />
+          {profilePhotoUrl ? <Text style={s.mutedSmall}>Foto selezionata. Premi “Salva profilo” per sincronizzarla.</Text> : <Text style={s.mutedSmall}>Puoi scegliere un'immagine dai file, dal rullino oppure scattarne una nuova.</Text>}
           <Button title={profileSaving ? 'Salvataggio...' : 'Salva profilo'} onPress={saveMemberProfile} />
         </View>
         <View style={s.panel}>
