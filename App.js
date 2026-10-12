@@ -189,6 +189,8 @@ export default function App() {
   const [listSearch, setListSearch] = useState('');
   const [sortMode, setSortMode] = useState('date_desc');
   const [showSortFilters, setShowSortFilters] = useState(false);
+  const [archiveSortMode, setArchiveSortMode] = useState('name_asc');
+  const [archiveFiltersOpen, setArchiveFiltersOpen] = useState(false);
   const [listView, setListView] = useState('details');
   const [namePosition, setNamePosition] = useState('center');
   const [email, setEmail] = useState('');
@@ -1908,7 +1910,14 @@ export default function App() {
 
   function renderCatalog(table) {
     const isProduct = table === 'products';
-    const data = records[table] || [];
+    const rawCatalogData = records[table] || [];
+    const data = [...rawCatalogData].sort((a, b) => {
+      const nameA = String(a.name || '');
+      const nameB = String(b.name || '');
+      return archiveSortMode === 'name_desc'
+        ? nameB.localeCompare(nameA, 'it', { sensitivity: 'base' })
+        : nameA.localeCompare(nameB, 'it', { sensitivity: 'base' });
+    });
 
     return (
       <>
@@ -1935,6 +1944,36 @@ export default function App() {
             </Text>
           </TouchableOpacity>
         </View>
+        <TouchableOpacity
+          style={[s.chip, archiveFiltersOpen && s.chipActive, { alignSelf: 'flex-start', marginTop: 12, marginBottom: 10 }]}
+          onPress={() => setArchiveFiltersOpen((visible) => !visible)}>
+          <Text style={[s.chipText, archiveFiltersOpen && s.chipTextActive]}>
+            {archiveFiltersOpen ? '⌃ Nascondi filtri' : '☷ Filtri e ordinamento'}
+          </Text>
+        </TouchableOpacity>
+        {archiveFiltersOpen && (
+          <View style={[s.panel, { marginBottom: 12 }]}>
+            <Text style={s.label}>Ordina per nome</Text>
+            <View style={s.filterWrap}>
+              {[
+                ['name_asc', 'Nome A-Z'],
+                ['name_desc', 'Nome Z-A'],
+              ].map(([value, label]) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[s.chip, archiveSortMode === value && s.chipActive]}
+                  onPress={() => setArchiveSortMode(value)}>
+                  <Text style={[s.chipText, archiveSortMode === value && s.chipTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[s.mutedText, { marginTop: 8 }]}>
+              Nell'Archivio sono disponibili gli ordinamenti per nome; data e prezzo non sono campi delle anagrafiche.
+            </Text>
+          </View>
+        )}
         <View style={s.panel}>
           <Text style={s.label}>Posizione del nome nell'elenco</Text>
           <View style={s.filterRow}>
