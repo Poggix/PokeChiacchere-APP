@@ -290,7 +290,10 @@ export default function App() {
         const requested = await Notifications.requestPermissionsAsync();
         status = requested.status;
       }
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        console.warn('Push disabilitate: permesso notifiche non concesso.', status);
+        return;
+      }
       const projectId = '1174ee6b-3282-4a57-8930-ce6d145be04e';
       if (!projectId) {
         console.warn(
@@ -317,8 +320,9 @@ export default function App() {
           }),
         }
       );
+      console.info('Registrazione push completata per questo utente.');
     } catch (e) {
-      console.warn('Registrazione notifiche non riuscita:', e?.message || e);
+      console.error('Registrazione notifiche non riuscita:', e?.message || e);
     }
   }
 
@@ -403,6 +407,22 @@ export default function App() {
       console.warn('Notifica automatica non inviata:', e?.message || e);
     }
   }
+
+  useEffect(() => {
+    const received = Notifications.addNotificationReceivedListener((notification) => {
+      console.info('Notifica push ricevuta in primo piano.', {
+        hasTitle: !!notification.request.content.title,
+        hasBody: !!notification.request.content.body,
+      });
+    });
+    const response = Notifications.addNotificationResponseReceivedListener(() => {
+      console.info('Interazione con notifica push registrata.');
+    });
+    return () => {
+      received.remove();
+      response.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (token && session?.user?.id) registerForPushNotifications();
