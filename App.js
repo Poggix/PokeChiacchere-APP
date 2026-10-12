@@ -356,10 +356,52 @@ export default function App() {
         throw new Error(
           payload.error || payload.message || `Errore HTTP ${response.status}`
         );
-      Alert.alert(
-        'Richiesta inviata',
-        'La funzione ha accettato la richiesta. La consegna dipende dalla configurazione push e dalle autorizzazioni del dispositivo.'
-      );
+      // Una risposta HTTP 2xx dalla Edge Function non dimostra, da sola,
+      // che Expo/APNs abbia accettato o consegnato la notifica.
+      const tickets = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.tickets)
+          ? payload.tickets
+          : Array.isArray(payload?.results)
+            ? payload.results
+            : [];
+      const ticketErrors = tickets
+        .filter((ticket) => ticket?.status === 'error' || ticket?.details?.error)
+        .map((ticket) => {
+          const code = ticket?.details?.error || ticket?.message || 'Errore push';
+          return String(code);
+        });
+      const serverErrors = Array.isArray(payload?.errors)
+        ? payload.errors.map((item) =>
+            typeof item === 'string' ? item : item?.message || item?.error || JSON.stringify(item)
+          )
+        : [];
+      const errors = [...ticketErrors, ...serverErrors];
+      const acceptedCount =
+        typeof payload?.sent === 'number'
+          ? payload.sent
+          : typeof payload?.accepted === 'number'
+            ? payload.accepted
+            : tickets.filter((ticket) => ticket?.status === 'ok').length;
+
+      if (errors.length > 0) {
+        Alert.alert(
+          'Problemi nell’invio push',
+          errors.slice(0, 4).join('\\n') +
+            (errors.length > 4 ? '\\n…' : '') +
+            '\\n\\nSe compare DeviceNotRegistered, il token salvato non è più valido. Se il server non riporta errori, va verificato anche l’entitlement aps-environment della firma iOS.'
+        );
+      } else if (tickets.length > 0 || typeof payload?.sent === 'number' || typeof payload?.accepted === 'number') {
+        Alert.alert(
+          'Richiesta elaborata',
+          `Expo ha accettato ${acceptedCount} ticket secondo la risposta del server. Questo non conferma la consegna al dispositivo: bisogna controllare le ricevute Expo e la firma APNs dell’app.`
+        );
+      } else {
+        Alert.alert(
+          'Richiesta ricevuta dal server',
+          'La Edge Function ha risposto correttamente, ma non ha restituito i ticket Expo né le ricevute di consegna. Non è possibile confermare che la notifica sia stata accettata da Expo o consegnata. Controlla la risposta della funzione rapid-processor e l’entitlement aps-environment della build iOS.'
+        );
+      }
       setNotificationMessage('');
     } catch (e) {
       Alert.alert(
