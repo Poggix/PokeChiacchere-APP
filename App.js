@@ -1921,7 +1921,7 @@ export default function App() {
 
     return (
       <>
-        {header('Archivio', isProduct ? 'Nomi prodotti salvati' : 'Clienti salvati')}
+        {header('Archivio', isProduct ? 'Nomi prodotto salvati' : 'Clienti salvati')}
         <View style={s.filterRow}>
           <TouchableOpacity
             style={[s.chip, isProduct && s.chipActive]}
@@ -1944,6 +1944,35 @@ export default function App() {
             </Text>
           </TouchableOpacity>
         </View>
+        <View style={s.panel}>
+          <Field
+            label={isProduct ? 'Nome prodotto' : 'Nome e cognome'}
+            value={form.name}
+            onChangeText={(v) => change('name', v)}
+            placeholder="Inserisci un nome"
+          />
+          <Button
+            title={isProduct ? '+ Aggiungi prodotto' : '+ Aggiungi cliente'}
+            onPress={async () => {
+              const name = String(form.name || '').trim();
+              if (!name) {
+                Alert.alert('Nome mancante', 'Scrivi un nome.');
+                return;
+              }
+              setLoading(true);
+              try {
+                await addCatalog(table, name);
+                setForm({});
+                Alert.alert('Archivio aggiornato', `${name} è stato aggiunto.`);
+              } catch (e) {
+                Alert.alert('Errore archivio', e.message);
+              } finally {
+                setLoading(false);
+              }
+            }}
+          />
+        </View>
+
         <TouchableOpacity
           style={[s.chip, archiveFiltersOpen && s.chipActive, { alignSelf: 'flex-start', marginTop: 12, marginBottom: 12 }]}
           onPress={() => setArchiveFiltersOpen((visible) => !visible)}>
@@ -1974,35 +2003,6 @@ export default function App() {
             </Text>
           </View>
         )}
-        <View style={s.panel}>
-          <Field
-            label={isProduct ? 'Nome prodotto' : 'Nome e cognome'}
-            value={form.name}
-            onChangeText={(v) => change('name', v)}
-            placeholder="Inserisci un nome"
-          />
-          <Button
-            title={isProduct ? '+ Aggiungi prodotto' : '+ Aggiungi cliente'}
-            onPress={async () => {
-              const name = String(form.name || '').trim();
-              if (!name) {
-                Alert.alert('Nome mancante', 'Scrivi un nome.');
-                return;
-              }
-              setLoading(true);
-              try {
-                await addCatalog(table, name);
-                setForm({});
-                Alert.alert('Archivio aggiornato', `${name} è stato aggiunto.`);
-              } catch (e) {
-                Alert.alert('Errore archivio', e.message);
-              } finally {
-                setLoading(false);
-              }
-            }}
-          />
-        </View>
-
         {data.map((row) => (
           <TouchableOpacity
             key={row.id}
