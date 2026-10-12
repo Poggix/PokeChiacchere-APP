@@ -585,9 +585,23 @@ export default function App() {
         }),
       });
       const presenceRows = await api('/rest/v1/member_presence?select=*&order=last_seen_at.desc', token);
-      setProfiles((Array.isArray(profileRows) ? profileRows : []).map((p) => ({
+      const profileList = Array.isArray(profileRows) ? profileRows : [];
+      const presenceList = Array.isArray(presenceRows) ? presenceRows : [];
+      const mergedProfiles = new Map(profileList.map((p) => [p.user_id, p]));
+      presenceList.forEach((presence) => {
+        if (!mergedProfiles.has(presence.user_id)) {
+          mergedProfiles.set(presence.user_id, {
+            user_id: presence.user_id,
+            email: presence.email || '',
+            first_name: '',
+            last_name: '',
+            avatar_url: null,
+          });
+        }
+      });
+      setProfiles([...mergedProfiles.values()].map((p) => ({
         ...p,
-        presence: (Array.isArray(presenceRows) ? presenceRows : []).find((x) => x.user_id === p.user_id) || null,
+        presence: presenceList.find((x) => x.user_id === p.user_id) || null,
       })));
     } catch (e) {
       console.warn('Profilo/presenza non disponibili. Verifica lo script SQL Supabase:', e?.message || e);
