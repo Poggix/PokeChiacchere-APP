@@ -2800,7 +2800,15 @@ export default function App() {
                   <Text style={s.panelTitle}>{displayName}{isMe ? ' (tu)' : ''}</Text>
                   <Text style={s.mutedSmall}>{active ? '● Attivo ora' : presence?.last_seen_at ? 'Ultimo accesso: ' + new Date(presence.last_seen_at).toLocaleString('it-IT') : 'Nessun accesso registrato'}</Text>
                 </View>
-                {active && <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: C.green }} />}
+                <View
+                  accessibilityLabel={active ? 'Socio attivo' : 'Socio non attivo'}
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: 5,
+                    backgroundColor: active ? C.green : C.red,
+                  }}
+                />
               </View>
             );
           })}
