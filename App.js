@@ -6,6 +6,8 @@ import Constants from 'expo-constants';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  Image,
   FlatList,
   Modal,
   SafeAreaView,
@@ -210,6 +212,12 @@ export default function App() {
   const [activitySearch, setActivitySearch] = useState('');
   const [activityActionFilter, setActivityActionFilter] = useState('ALL');
   const [activityTableFilter, setActivityTableFilter] = useState('ALL');
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profiles, setProfiles] = useState([]);
+  const [presenceLoading, setPresenceLoading] = useState(false);
 
   const [records, setRecords] = useState({
     sales: [],
@@ -555,6 +563,74 @@ export default function App() {
   useEffect(() => {
     if (token && session?.user?.id) registerForPushNotifications();
   }, [token, session?.user?.id]);
+
+  const loadProfilesAndPresence = useCallback(async () => {
+    if (!token || !session?.user?.id) return;
+    setPresenceLoading(true);
+    try {
+      const profileRows = await api('/rest/v1/member_profiles?select=*&order=updated_at.desc', token);
+      setProfiles(Array.isArray(profileRows) ? profileRows : []);
+      const first = (Array.isArray(profileRows) ? profileRows : []).find((p) => p.user_id === session.user.id);
+      setProfileFirstName(first?.first_name || session.user.user_metadata?.first_name || '');
+      setProfileLastName(first?.last_name || session.user.user_metadata?.last_name || '');
+      setProfilePhotoUrl(first?.avatar_url || session.user.user_metadata?.avatar_url || '');
+      await api('/rest/v1/member_presence?on_conflict=user_id', token, {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          email: session.user.email || '',
+          last_seen_at: new Date().toISOString(),
+          is_active: true,
+        }),
+      });
+      const presenceRows = await api('/rest/v1/member_presence?select=*&order=last_seen_at.desc', token);
+      setProfiles((Array.isArray(profileRows) ? profileRows : []).map((p) => ({
+        ...p,
+        presence: (Array.isArray(presenceRows) ? presenceRows : []).find((x) => x.user_id === p.user_id) || null,
+      })));
+    } catch (e) {
+      console.warn('Profilo/presenza non disponibili. Verifica lo script SQL Supabase:', e?.message || e);
+    } finally {
+      setPresenceLoading(false);
+    }
+  }, [token, session?.user?.id]);
+
+  useEffect(() => {
+    if (!token || !session?.user?.id) return;
+    loadProfilesAndPresence();
+    const heartbeat = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        api('/rest/v1/member_presence?on_conflict=user_id', token, {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({
+            user_id: session.user.id,
+            email: session.user.email || '',
+            last_seen_at: new Date().toISOString(),
+            is_active: true,
+          }),
+        }).catch(() => {});
+      }
+    }, 60000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      api('/rest/v1/member_presence?on_conflict=user_id', token, {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          email: session.user.email || '',
+          last_seen_at: new Date().toISOString(),
+          is_active: state === 'active',
+        }),
+      }).catch(() => {});
+      if (state === 'active') loadProfilesAndPresence();
+    });
+    return () => {
+      clearInterval(heartbeat);
+      subscription.remove();
+    };
+  }, [token, session?.user?.id, loadProfilesAndPresence]);
 
   useEffect(() => {
     let active = true;
@@ -2616,27 +2692,86 @@ export default function App() {
     }
   }
 
+  async function saveMemberProfile() {
+    if (!token || !session?.user?.id) return;
+    setProfileSaving(true);
+    try {
+      await api('/rest/v1/member_profiles?on_conflict=user_id', token, {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          email: session.user.email || '',
+          first_name: profileFirstName.trim(),
+          last_name: profileLastName.trim(),
+          avatar_url: profilePhotoUrl.trim() || null,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      await loadProfilesAndPresence();
+      Alert.alert('Profilo salvato', 'I dati del profilo sono sincronizzati.');
+    } catch (e) {
+      Alert.alert('Errore profilo', 'Verifica di aver eseguito lo script SQL in Supabase. ' + e.message);
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   function renderSettings() {
+    const currentProfile = profiles.find((p) => p.user_id === session?.user?.id);
     return (
       <>
-        {header('Impostazioni', 'Preferenze e controllo delle attività')}
+        {header('Impostazioni', 'Profilo personale e controllo delle attività')}
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Il mio profilo</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+            {profilePhotoUrl.trim() ? (
+              <Image source={{ uri: profilePhotoUrl.trim() }} style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: C.panel2 }} />
+            ) : (
+              <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: C.panel2, borderWidth: 1, borderColor: C.green, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: C.green, fontSize: 25, fontWeight: '900' }}>{(profileFirstName[0] || session?.user?.email?.[0] || '?').toUpperCase()}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={s.mutedSmall}>La foto viene mostrata agli altri soci tramite un link immagine.</Text>
+            </View>
+          </View>
+          <Field label="Nome" value={profileFirstName} onChangeText={setProfileFirstName} placeholder="Il tuo nome" />
+          <Field label="Cognome" value={profileLastName} onChangeText={setProfileLastName} placeholder="Il tuo cognome" />
+          <Field label="URL foto profilo" value={profilePhotoUrl} onChangeText={setProfilePhotoUrl} placeholder="https://..." />
+          <Button title={profileSaving ? 'Salvataggio...' : 'Salva profilo'} onPress={saveMemberProfile} />
+        </View>
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Attività soci</Text>
+          <Text style={s.mutedSmall}>Presenza aggiornata automaticamente quando l'app è aperta. Ultimo accesso mostrato per ogni account.</Text>
+          <Button title={presenceLoading ? 'Aggiornamento...' : 'Aggiorna attività soci'} type="secondary" onPress={loadProfilesAndPresence} />
+          {profiles.map((p) => {
+            const isMe = p.user_id === session?.user?.id;
+            const presence = p.presence;
+            const active = !!presence?.is_active && presence.last_seen_at && (Date.now() - new Date(presence.last_seen_at).getTime() < 2 * 60 * 1000);
+            const displayName = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Socio';
+            return (
+              <View key={p.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                {p.avatar_url ? <Image source={{ uri: p.avatar_url }} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.panel2 }} /> : <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.green, fontWeight: '900' }}>{displayName[0]?.toUpperCase() || '?'}</Text></View>}
+                <View style={{ flex: 1 }}>
+                  <Text style={s.panelTitle}>{displayName}{isMe ? ' (tu)' : ''}</Text>
+                  <Text style={s.mutedSmall}>{active ? '● Attivo ora' : presence?.last_seen_at ? 'Ultimo accesso: ' + new Date(presence.last_seen_at).toLocaleString('it-IT') : 'Nessun accesso registrato'}</Text>
+                </View>
+                {active && <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: C.green }} />}
+              </View>
+            );
+          })}
+          {!profiles.length && <Text style={s.mutedSmall}>Nessun profilo trovato. Ogni socio deve salvare il profilo una prima volta.</Text>}
+        </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Registro attività</Text>
-          <Text style={s.mutedSmall}>
-            Consulta chi ha creato, modificato o eliminato registrazioni, con
-            data, ora e confronto dettagliato dei campi.
-          </Text>
+          <Text style={s.mutedSmall}>Consulta chi ha creato, modificato o eliminato registrazioni, con data, ora e confronto dettagliato dei campi.</Text>
           <Button title="Apri registro attività" onPress={openActivityLog} />
         </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Account attivo</Text>
-          <Text style={s.activityActor}>
-            {session?.user?.email || 'Email non disponibile'}
-          </Text>
-          <Text style={s.mutedSmall}>
-            Le operazioni vengono associate all'account Supabase con cui hai
-            effettuato l'accesso.
-          </Text>
+          <Text style={s.activityActor}>{session?.user?.email || 'Email non disponibile'}</Text>
+          <Text style={s.mutedSmall}>Le operazioni vengono associate all'account Supabase con cui hai effettuato l'accesso.</Text>
         </View>
       </>
     );
