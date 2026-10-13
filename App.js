@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -216,6 +216,7 @@ export default function App() {
   const [profileFirstName, setProfileFirstName] = useState('');
   const [profileLastName, setProfileLastName] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+  const profileDirtyRef = useRef(false);
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profiles, setProfiles] = useState([]);
@@ -573,9 +574,12 @@ export default function App() {
       const profileRows = await api('/rest/v1/member_profiles?select=*&order=updated_at.desc', token);
       setProfiles(Array.isArray(profileRows) ? profileRows : []);
       const first = (Array.isArray(profileRows) ? profileRows : []).find((p) => p.user_id === session.user.id);
-      setProfileFirstName(first?.first_name || session.user.user_metadata?.first_name || '');
-      setProfileLastName(first?.last_name || session.user.user_metadata?.last_name || '');
-      setProfilePhotoUrl(first?.avatar_url || session.user.user_metadata?.avatar_url || '');
+      // Il polling della presenza non deve sovrascrivere i campi che l'utente sta modificando.
+      if (!profileDirtyRef.current) {
+        setProfileFirstName(first?.first_name || session.user.user_metadata?.first_name || '');
+        setProfileLastName(first?.last_name || session.user.user_metadata?.last_name || '');
+        setProfilePhotoUrl(first?.avatar_url || session.user.user_metadata?.avatar_url || '');
+      }
       await api('/rest/v1/member_presence?on_conflict=user_id', token, {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -2826,6 +2830,7 @@ export default function App() {
           updated_at: new Date().toISOString(),
         }),
       });
+      profileDirtyRef.current = false;
       await loadProfilesAndPresence();
       Alert.alert('Profilo salvato', 'I dati del profilo sono sincronizzati.');
     } catch (e) {
@@ -2854,8 +2859,8 @@ export default function App() {
               <Text style={s.mutedSmall}>La foto viene mostrata agli altri soci tramite un link immagine.</Text>
             </View>
           </View>
-          <Field label="Nome" value={profileFirstName} onChangeText={setProfileFirstName} placeholder="Il tuo nome" />
-          <Field label="Cognome" value={profileLastName} onChangeText={setProfileLastName} placeholder="Il tuo cognome" />
+          <Field label="Nome" value={profileFirstName} onChangeText={(value) => { profileDirtyRef.current = true; setProfileFirstName(value); }} placeholder="Il tuo nome" />
+          <Field label="Cognome" value={profileLastName} onChangeText={(value) => { profileDirtyRef.current = true; setProfileLastName(value); }} placeholder="Il tuo cognome" />
           <Text style={{ color: C.muted, fontSize: 12, fontWeight: '800', marginBottom: 8 }}>Foto profilo</Text>
           <Button title={profilePhotoUploading ? 'Caricamento foto...' : 'Scegli foto da File, Rullino o Fotocamera'} type="secondary" onPress={openProfilePhotoOptions} />
           {profilePhotoUrl ? <Text style={s.mutedSmall}>Foto selezionata. Premi “Salva profilo” per sincronizzarla.</Text> : <Text style={s.mutedSmall}>Puoi scegliere un'immagine dai file, dal rullino oppure scattarne una nuova.</Text>}
