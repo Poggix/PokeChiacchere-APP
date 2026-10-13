@@ -2897,23 +2897,38 @@ export default function App() {
           'Installata: v' + installedVersion + ' (build ' + installedBuild + ')\\n' +
             'Disponibile: v' + latestVersion + ' (build ' + latestBuild + ')' +
             (latest.notes ? '\\n\\n' + latest.notes : '') +
-            '\\n\\nPremi “Installa con SideStore” per aprire SideStore e avviare l’installazione direttamente dal link ufficiale della IPA.',
+            '\\n\\nPremi “Scarica e condividi” per scaricare la IPA e aprire il menu di condivisione iOS. Da lì scegli SideStore, se compare.',
           [
             { text: 'Più tardi', style: 'cancel' },
             {
-              text: 'Installa con SideStore',
+              text: 'Scarica e condividi',
               onPress: async () => {
                 try {
-                  const sideStoreUrl =
-                    'sidestore://install?url=' + encodeURIComponent(downloadUrl);
-                  await Linking.openURL(sideStoreUrl);
+                  const safeVersion = latestVersion.replace(/[^0-9.]/g, '_');
+                  const fileUri = FileSystem.cacheDirectory + 'PokeChiacchere-v' + safeVersion + '-build' + latestBuild + '.ipa';
+                  const downloaded = await FileSystem.downloadAsync(downloadUrl, fileUri);
+                  if (downloaded.status < 200 || downloaded.status >= 300) {
+                    throw new Error('Download non riuscito (HTTP ' + downloaded.status + ').');
+                  }
+
+                  const info = await FileSystem.getInfoAsync(downloaded.uri);
+                  if (!info.exists || !info.size || info.size < 100000) {
+                    throw new Error('Il file scaricato è troppo piccolo o non è una IPA valida. Verifica che download_url punti direttamente al file .ipa, non a una pagina iCloud.');
+                  }
+
+                  await Sharing.shareAsync(downloaded.uri, {
+                    mimeType: 'application/octet-stream',
+                    UTI: 'com.apple.itunes.ipa',
+                    dialogTitle: 'Apri la IPA con SideStore'
+                  });
                 } catch (error) {
                   Alert.alert(
-                    'Impossibile aprire SideStore',
-                    'Verifica che SideStore sia installato e riprova. In alternativa, scarica la IPA e aprila da File > Condividi > SideStore.'
+                    'Download aggiornamento non riuscito',
+                    (error?.message || 'Errore durante il download.') +
+                      '\\n\\nNota: download_url deve essere un link diretto al file IPA. Un link a una cartella o pagina di iCloud potrebbe scaricare una pagina web invece dell’app.'
                   );
                 }
-              },,
+              },
             },
           ]
         );
