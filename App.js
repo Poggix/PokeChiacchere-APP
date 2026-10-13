@@ -39,6 +39,9 @@ const KEY = 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9';
 const NOTIFICATION_FUNCTION_URL = `${URL}/functions/v1/rapid-processor`;
 // Sostituisci questo valore con l'UUID del tuo utente in Supabase > Authentication > Users.
 const OWNER_USER_ID = '01bf546e-bf28-46ac-8370-b4fe30d8a8fd';
+const INSTALLED_APP_VERSION = String(
+  Constants.nativeAppVersion || Constants.expoConfig?.version || '0.0.0'
+);
 const SOCI = ['Poggio', 'Fanton'];
 
 const C = {
@@ -592,7 +595,7 @@ export default function App() {
           email: session.user.email || '',
           last_seen_at: new Date().toISOString(),
           is_active: true,
-          app_version: '2.5.1',
+          app_version: INSTALLED_APP_VERSION,
         }),
       });
       const presenceRows = await api('/rest/v1/member_presence?select=*&order=last_seen_at.desc', token);
@@ -634,6 +637,7 @@ export default function App() {
             email: session.user.email || '',
             last_seen_at: new Date().toISOString(),
             is_active: true,
+            app_version: INSTALLED_APP_VERSION,
           }),
         }).catch(() => {});
       }
@@ -647,6 +651,7 @@ export default function App() {
           email: session.user.email || '',
           last_seen_at: new Date().toISOString(),
           is_active: state === 'active',
+          app_version: INSTALLED_APP_VERSION,
         }),
       }).catch(() => {});
       if (state === 'active') loadProfilesAndPresence();
