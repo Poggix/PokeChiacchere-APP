@@ -9,6 +9,7 @@ import {
   Alert,
   AppState,
   Image,
+  Linking,
   FlatList,
   Modal,
   SafeAreaView,
@@ -221,6 +222,7 @@ export default function App() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profiles, setProfiles] = useState([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
+  const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
 
   const [records, setRecords] = useState({
     sales: [],
@@ -2841,11 +2843,95 @@ export default function App() {
     }
   }
 
+  async function checkForUpdates() {
+    if (updateCheckBusy) return;
+    setUpdateCheckBusy(true);
+    try {
+      const response = await fetch(
+        'https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/version.json?t=' + Date.now()
+      );
+      if (!response.ok) throw new Error('Impossibile leggere le informazioni online (HTTP ' + response.status + ').');
+      const latest = await response.json();
+      const installedVersion = String(
+        Constants.nativeAppVersion || Constants.expoConfig?.version || '0.0.0'
+      );
+      const installedBuild = Number(
+        Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || 0
+      );
+      const latestVersion = String(latest.version || '');
+      const latestBuild = Number(latest.build || 0);
+      if (!latestVersion || !Number.isFinite(latestBuild) || latestBuild < 1) {
+        throw new Error('Il file version.json non contiene versione e build valide.');
+      }
+
+      const versionParts = (value) => value.split('.').map((part) => Number(part) || 0);
+      const compareVersions = (a, b) => {
+        const aa = versionParts(a);
+        const bb = versionParts(b);
+        for (let i = 0; i < Math.max(aa.length, bb.length); i += 1) {
+          const diff = (aa[i] || 0) - (bb[i] || 0);
+          if (diff !== 0) return diff;
+        }
+        return 0;
+      };
+      const versionComparison = compareVersions(latestVersion, installedVersion);
+      const updateAvailable =
+        versionComparison > 0 ||
+        (versionComparison === 0 && latestBuild > installedBuild);
+
+      if (updateAvailable) {
+        Alert.alert(
+          'Aggiornamento disponibile',
+          'Installata: v' + installedVersion + ' (build ' + installedBuild + ')\\n' +
+            'Disponibile: v' + latestVersion + ' (build ' + latestBuild + ')' +
+            (latest.notes ? '\\n\\n' + latest.notes : ''),
+          [
+            { text: 'Più tardi', style: 'cancel' },
+            {
+              text: 'Apri aggiornamento',
+              onPress: async () => {
+                const url = latest.download_url;
+                if (!url) {
+                  Alert.alert('Link mancante', 'Aggiungi download_url al file version.json.');
+                  return;
+                }
+                try {
+                  await Linking.openURL(url);
+                } catch {
+                  Alert.alert('Impossibile aprire il link', 'Controlla il link di download in version.json.');
+                }
+              },
+            },
+          ]
+        );
+      } else if (versionComparison === 0 && latestBuild === installedBuild) {
+        Alert.alert(
+          'App aggiornata',
+          'Hai già la versione più recente: v' + installedVersion + ' (build ' + installedBuild + ').'
+        );
+      } else {
+        Alert.alert(
+          'Versione online non aggiornata',
+          'Sul dispositivo è installata v' + installedVersion + ' (build ' + installedBuild + '), ma il file online indica v' + latestVersion + ' (build ' + latestBuild + '). Controlla version.json.'
+        );
+      }
+    } catch (error) {
+      Alert.alert('Controllo aggiornamenti non riuscito', error?.message || 'Errore di rete.');
+    } finally {
+      setUpdateCheckBusy(false);
+    }
+  }
+
   function renderSettings() {
     const currentProfile = profiles.find((p) => p.user_id === session?.user?.id);
     return (
       <>
         {header('Impostazioni', 'Profilo personale e controllo delle attività')}
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Aggiornamenti app</Text>
+          <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
+          <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
+        </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Il mio profilo</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
