@@ -2926,15 +2926,15 @@ export default function App() {
                   }
 
                   const info = await FileSystem.getInfoAsync(downloaded.uri);
-                  if (!info.exists || !info.size || info.size < 100000 || !downloaded.uri.toLowerCase().endsWith('.ipa')) {
-                    throw new Error('Il file scaricato non esiste, è troppo piccolo o non conserva l’estensione .ipa. Verifica che download_url punti direttamente alla IPA.');
+                  if (!info.exists || !info.size || info.size < 100000) {
+                    throw new Error('Il file scaricato non esiste o è troppo piccolo per essere una IPA valida.');
                   }
 
-                  // public.item è più generico e spesso più compatibile con le app
-                  // che importano documenti dal foglio di condivisione di iOS.
-                  await Sharing.shareAsync(downloaded.uri, {
+                  // La destinazione locale è sempre un file .ipa. Usa il tipo UTI specifico
+                  // dell'archivio iOS, così SideStore può riconoscerlo dal foglio di condivisione.
+                  await Sharing.shareAsync(fileUri, {
                     mimeType: 'application/octet-stream',
-                    UTI: 'public.item',
+                    UTI: 'com.apple.itunes.ipa',
                     dialogTitle: 'Apri la IPA con SideStore'
                   });
                 } catch (error) {
