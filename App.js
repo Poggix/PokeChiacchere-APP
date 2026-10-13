@@ -4,6 +4,8 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import {
   ActivityIndicator,
   Alert,
@@ -2880,25 +2882,46 @@ export default function App() {
         (versionComparison === 0 && latestBuild > installedBuild);
 
       if (updateAvailable) {
+        const downloadUrl = String(latest.download_url || '').trim();
+        if (!downloadUrl || !/^https:\/\//i.test(downloadUrl)) {
+          throw new Error('Il file version.json deve contenere un download_url HTTPS diretto alla IPA.');
+        }
+
         Alert.alert(
           'Aggiornamento disponibile',
           'Installata: v' + installedVersion + ' (build ' + installedBuild + ')\\n' +
             'Disponibile: v' + latestVersion + ' (build ' + latestBuild + ')' +
-            (latest.notes ? '\\n\\n' + latest.notes : ''),
+            (latest.notes ? '\\n\\n' + latest.notes : '') +
+            '\\n\\nPremi “Scarica e condividi” per scaricare la IPA e aprire il menu di condivisione iOS. Da lì scegli SideStore, se compare.',
           [
             { text: 'Più tardi', style: 'cancel' },
             {
-              text: 'Apri aggiornamento',
+              text: 'Scarica e condividi',
               onPress: async () => {
-                const url = latest.download_url;
-                if (!url) {
-                  Alert.alert('Link mancante', 'Aggiungi download_url al file version.json.');
-                  return;
-                }
                 try {
-                  await Linking.openURL(url);
-                } catch {
-                  Alert.alert('Impossibile aprire il link', 'Controlla il link di download in version.json.');
+                  const safeVersion = latestVersion.replace(/[^0-9.]/g, '_');
+                  const fileUri = FileSystem.cacheDirectory + 'PokeChiacchere-v' + safeVersion + '-build' + latestBuild + '.ipa';
+                  const downloaded = await FileSystem.downloadAsync(downloadUrl, fileUri);
+                  if (downloaded.status < 200 || downloaded.status >= 300) {
+                    throw new Error('Download non riuscito (HTTP ' + downloaded.status + ').');
+                  }
+
+                  const info = await FileSystem.getInfoAsync(downloaded.uri);
+                  if (!info.exists || !info.size || info.size < 100000) {
+                    throw new Error('Il file scaricato è troppo piccolo o non è una IPA valida. Verifica che download_url punti direttamente al file .ipa, non a una pagina iCloud.');
+                  }
+
+                  await Sharing.shareAsync(downloaded.uri, {
+                    mimeType: 'application/octet-stream',
+                    UTI: 'com.apple.itunes.ipa',
+                    dialogTitle: 'Apri la IPA con SideStore'
+                  });
+                } catch (error) {
+                  Alert.alert(
+                    'Download aggiornamento non riuscito',
+                    (error?.message || 'Errore durante il download.') +
+                      '\\n\\nNota: download_url deve essere un link diretto al file IPA. Un link a una cartella o pagina di iCloud potrebbe scaricare una pagina web invece dell’app.'
+                  );
                 }
               },
             },
