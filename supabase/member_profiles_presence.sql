@@ -17,6 +17,10 @@ create table if not exists public.member_presence (
   is_active boolean not null default false
 );
 
+-- Compatibilità con la versione dell'app che mostra la versione installata dei soci.
+alter table public.member_presence
+  add column if not exists app_version text;
+
 alter table public.member_profiles enable row level security;
 alter table public.member_presence enable row level security;
 
