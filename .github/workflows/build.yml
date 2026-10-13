@@ -2,6 +2,11 @@ name: Build PokeChiacchere IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      icloud_2fa_code:
+        description: "Codice di verifica Apple (se richiesto)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -130,9 +135,12 @@ jobs:
           ICLOUD_USERNAME: ${{ secrets.ICLOUD_USERNAME }}
           ICLOUD_PASSWORD: ${{ secrets.ICLOUD_PASSWORD }}
           ICLOUD_FOLDER_PATH: ${{ secrets.ICLOUD_FOLDER_PATH }}
-          ICLOUD_2FA_CODE: ${{ secrets.ICLOUD_2FA_CODE }}
+          ICLOUD_2FA_CODE: ${{ inputs.icloud_2fa_code }}
           IPA_PATH: ${{ steps.app_version.outputs.file_name }}.ipa
         run: |
+          if [ -n "$ICLOUD_2FA_CODE" ]; then
+            echo "::add-mask::$ICLOUD_2FA_CODE"
+          fi
           if [ -z "$ICLOUD_USERNAME" ] || [ -z "$ICLOUD_PASSWORD" ] || [ -z "$ICLOUD_FOLDER_PATH" ]; then
             echo "::warning::Upload iCloud saltato: configura ICLOUD_USERNAME, ICLOUD_PASSWORD e ICLOUD_FOLDER_PATH nei GitHub Secrets."
             exit 0
