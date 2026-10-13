@@ -17,7 +17,7 @@ jobs:
           script: |
             const release = context.payload.release;
             const tag = release.tag_name || '';
-            const match = tag.match(/^v?(\\d+\\.\\d+\\.\\d+)-build(\\d+)$/i);
+            const match = tag.match(/^v?(\d+\.\d+\.\d+)-build(\d+)$/i);
             if (!match) {
               core.setFailed(`Tag non valido: "${tag}". Usa v2.5.7-build10.`);
               return;
@@ -60,7 +60,7 @@ jobs:
               repo: context.repo.repo,
               path,
               message: `chore: aggiorna version.json a v${version} build ${build}`,
-              content: Buffer.from(JSON.stringify(manifest, null, 2) + '\\n').toString('base64'),
+              content: Buffer.from(JSON.stringify(manifest, null, 2) + '\n').toString('base64'),
               sha: file.sha,
               branch: context.payload.repository.default_branch
             });
