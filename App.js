@@ -228,6 +228,7 @@ export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
+  const [downloadedIpa, setDownloadedIpa] = useState(null);
 
   const [records, setRecords] = useState({
     sales: [],
@@ -2851,6 +2852,28 @@ export default function App() {
   }
 
 
+  async function shareDownloadedIpa() {
+    try {
+      const uri = downloadedIpa?.uri;
+      if (!uri) {
+        Alert.alert('Nessuna IPA disponibile', 'Scarica prima l’aggiornamento.');
+        return;
+      }
+      const info = await FileSystem.getInfoAsync(uri);
+      if (!info.exists || !info.size || info.size < 100000) {
+        setDownloadedIpa(null);
+        throw new Error('Il file IPA non è più disponibile o risulta incompleto. Scaricalo di nuovo.');
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/octet-stream',
+        UTI: 'com.apple.itunes.ipa',
+        dialogTitle: 'Condividi la IPA con SideStore',
+      });
+    } catch (error) {
+      Alert.alert('Condivisione non riuscita', error?.message || 'Impossibile condividere la IPA.');
+    }
+  }
+
   async function checkForUpdates() {
     if (updateCheckBusy) return;
     setUpdateCheckBusy(true);
@@ -2930,13 +2953,19 @@ export default function App() {
                     throw new Error('Il file scaricato non esiste o è troppo piccolo per essere una IPA valida.');
                   }
 
-                  // La destinazione locale è sempre un file .ipa. Usa il tipo UTI specifico
-                  // dell'archivio iOS, così SideStore può riconoscerlo dal foglio di condivisione.
-                  await Sharing.shareAsync(fileUri, {
-                    mimeType: 'application/octet-stream',
-                    UTI: 'com.apple.itunes.ipa',
-                    dialogTitle: 'Apri la IPA con SideStore'
+                  // Conserva il file nella sezione Aggiornamenti: la condivisione avviene
+                  // solo quando l'utente preme il pulsante dedicato nella schermata Impostazioni.
+                  setDownloadedIpa({
+                    uri: fileUri,
+                    fileName,
+                    version: latestVersion,
+                    build: latestBuild,
+                    size: info.size,
                   });
+                  Alert.alert(
+                    'IPA scaricata',
+                    'File completo salvato nella sezione Aggiornamenti dell’app. Da lì premi “Condividi IPA con SideStore”.'
+                  );
                 } catch (error) {
                   Alert.alert(
                     'Download aggiornamento non riuscito',
@@ -3039,6 +3068,23 @@ export default function App() {
           <Text style={s.panelTitle}>Aggiornamenti app</Text>
           <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
           <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
+          {downloadedIpa ? (
+            <View style={{ backgroundColor: C.panel2, borderRadius: 12, padding: 13, marginTop: 12 }}>
+              <Text style={{ color: C.green, fontSize: 13, fontWeight: '900' }}>IPA pronta per la condivisione</Text>
+              <Text style={s.mutedSmall}>{downloadedIpa.fileName}</Text>
+              <Text style={s.mutedSmall}>Versione {downloadedIpa.version} · build {downloadedIpa.build} · {(downloadedIpa.size / (1024 * 1024)).toFixed(1)} MB</Text>
+              <Button title="Condividi IPA con SideStore" onPress={shareDownloadedIpa} />
+              <Button title="Elimina IPA scaricata" type="danger" onPress={async () => {
+                try {
+                  await FileSystem.deleteAsync(downloadedIpa.uri, { idempotent: true });
+                } catch (_) {}
+                setDownloadedIpa(null);
+                Alert.alert('IPA eliminata', 'Il file scaricato è stato rimosso dal dispositivo.');
+              }} />
+            </View>
+          ) : (
+            <Text style={s.mutedSmall}>Dopo il download, il file IPA comparirà qui. Potrai condividerlo con SideStore quando vuoi.</Text>
+          )}
         </View>
       </>
     );
