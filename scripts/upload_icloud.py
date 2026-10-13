@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-from pyicloud import PyiCloudService
+from icloudpy import ICloudPyService
 
 
 def main():
@@ -17,9 +17,12 @@ def main():
     if not ipa_path.is_file():
         raise FileNotFoundError(f"IPA non trovata: {ipa_path}")
 
-    # pyicloud persists its cookies and session metadata in this directory.
-    # GitHub Actions restores/saves this directory between runs (encrypted).
-    api = PyiCloudService(username, password, cookie_directory=str(session_dir))
+    # iCloudPy saves the session token and cookies inside cookie_directory.
+    api = ICloudPyService(
+        username,
+        password,
+        cookie_directory=str(session_dir),
+    )
 
     if getattr(api, "requires_2fa", False):
         if not verification_code:
@@ -33,11 +36,15 @@ def main():
                 "nuovo e riprova; non riutilizzare un codice precedente."
             )
         if not api.is_trusted_session:
-            api.trust_session()
+            if not api.trust_session():
+                raise RuntimeError(
+                    "Apple non ha contrassegnato la sessione come attendibile."
+                )
 
     if getattr(api, "requires_2sa", False):
         raise RuntimeError(
-            "L'account richiede la verifica 2SA, non gestita da questo tentativo."
+            "L'account richiede la verifica 2SA. Questa modalità non è gestita "
+            "da questo workflow."
         )
 
     folder = api.drive
@@ -48,7 +55,7 @@ def main():
         folder.upload(ipa_file)
 
     print(f"Caricamento iCloud completato: {ipa_path.name}")
-    print("Sessione pyicloud pronta per essere salvata in modo cifrato da GitHub Actions.")
+    print("Sessione iCloudPy pronta per essere salvata in modo cifrato.")
 
 
 if __name__ == "__main__":
