@@ -2928,11 +2928,6 @@ export default function App() {
       <>
         {header('Impostazioni', 'Profilo personale e controllo delle attività')}
         <View style={s.panel}>
-          <Text style={s.panelTitle}>Aggiornamenti app</Text>
-          <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
-          <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
-        </View>
-        <View style={s.panel}>
           <Text style={s.panelTitle}>Il mio profilo</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
             {profilePhotoUrl.trim() ? (
@@ -2995,6 +2990,11 @@ export default function App() {
           <Text style={s.panelTitle}>Account attivo</Text>
           <Text style={s.activityActor}>{session?.user?.email || 'Email non disponibile'}</Text>
           <Text style={s.mutedSmall}>Le operazioni vengono associate all'account Supabase con cui hai effettuato l'accesso.</Text>
+        </View>
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Aggiornamenti app</Text>
+          <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
+          <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
         </View>
       </>
     );
