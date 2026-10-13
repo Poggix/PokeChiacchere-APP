@@ -11,20 +11,27 @@ def main():
     folder_path = os.environ["ICLOUD_FOLDER_PATH"].strip("/")
     ipa_path = Path(os.environ["IPA_PATH"])
     verification_code = os.environ.get("ICLOUD_2FA_CODE", "").strip()
+    session_dir = Path(os.environ.get("ICLOUD_SESSION_DIR", ".icloud-session"))
+    session_dir.mkdir(parents=True, exist_ok=True)
 
     if not ipa_path.is_file():
         raise FileNotFoundError(f"IPA non trovata: {ipa_path}")
 
-    api = PyiCloudService(username, password)
+    # pyicloud persists its cookies and session metadata in this directory.
+    # GitHub Actions restores/saves this directory between runs (encrypted).
+    api = PyiCloudService(username, password, cookie_directory=str(session_dir))
 
     if getattr(api, "requires_2fa", False):
         if not verification_code:
             raise RuntimeError(
-                "Apple richiede un codice 2FA. Avvia il workflow inserendo "
-                "il codice nel campo ICLOUD_2FA_CODE."
+                "Apple richiede un codice 2FA. Avvia il workflow con un codice "
+                "Apple recente nel campo ICLOUD_2FA_CODE."
             )
         if not api.validate_2fa_code(verification_code):
-            raise RuntimeError("Il codice Apple 2FA non è stato accettato.")
+            raise RuntimeError(
+                "Il codice Apple 2FA non è stato accettato. Richiedi un codice "
+                "nuovo e riprova; non riutilizzare un codice precedente."
+            )
         if not api.is_trusted_session:
             api.trust_session()
 
@@ -41,6 +48,7 @@ def main():
         folder.upload(ipa_file)
 
     print(f"Caricamento iCloud completato: {ipa_path.name}")
+    print("Sessione pyicloud pronta per essere salvata in modo cifrato da GitHub Actions.")
 
 
 if __name__ == "__main__":
