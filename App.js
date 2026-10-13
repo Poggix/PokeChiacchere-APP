@@ -2850,6 +2850,64 @@ export default function App() {
     }
   }
 
+
+  // Tentativo sperimentale: legge la pagina pubblica della cartella iCloud e cerca
+  // link a IPA nominate PokeChiacchere-vX.Y.Z-buildN.ipa. Il link della cartella
+  // da solo non è un link diretto al file: se Apple non espone l'elenco nell'HTML,
+  // fallisce esplicitamente invece di scaricare una pagina web come se fosse una IPA.
+  async function resolveLatestICloudRelease(manifest) {
+    const folderUrl = String(manifest.folder_url || '').trim();
+    if (!/^https:\/\/www\.icloud\.com\/iclouddrive\//i.test(folderUrl)) {
+      throw new Error('version.json deve contenere folder_url con il link pubblico della cartella iCloud.');
+    }
+
+    const folderResponse = await fetch(folderUrl, {
+      headers: { Accept: 'text/html,application/xhtml+xml' },
+    });
+    if (!folderResponse.ok) {
+      throw new Error('Impossibile aprire la cartella iCloud (HTTP ' + folderResponse.status + ').');
+    }
+    const html = await folderResponse.text();
+    const filenamePattern = /PokeChiacchere-v(\d+(?:\.\d+){1,3})-build(\d+)\.ipa/i;
+    const candidates = [];
+    const anchorPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = anchorPattern.exec(html)) !== null) {
+      const href = match[1].replace(/&amp;/g, '&');
+      const label = match[2].replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+      const found = (label + ' ' + href).match(filenamePattern);
+      if (!found) continue;
+      let url;
+      try { url = new URL(href, folderUrl).toString(); } catch { continue; }
+      candidates.push({
+        version: found[1],
+        build: Number(found[2]),
+        download_url: url,
+        notes: 'Aggiornamento trovato nella cartella iCloud',
+      });
+    }
+
+    // Alcune pagine possono includere i link nei dati incorporati anziché negli anchor.
+    if (!candidates.length) {
+      const filenameMatches = [...html.matchAll(/PokeChiacchere-v(\d+(?:\.\d+){1,3})-build(\d+)\.ipa/gi)];
+      if (filenameMatches.length) {
+        throw new Error('iCloud mostra il nome di una IPA ma non un link diretto scaricabile. La pagina pubblica potrebbe richiedere un resolver dedicato.');
+      }
+      throw new Error('iCloud non ha esposto nell’HTML l’elenco delle IPA. Il link della cartella non basta a identificare il file più recente; serve un endpoint di elenco accessibile o un link condiviso per ogni IPA.');
+    }
+
+    candidates.sort((a, b) => {
+      const versionParts = (value) => value.split('.').map((part) => Number(part) || 0);
+      const av = versionParts(a.version), bv = versionParts(b.version);
+      for (let i = 0; i < Math.max(av.length, bv.length); i += 1) {
+        const diff = (av[i] || 0) - (bv[i] || 0);
+        if (diff) return diff;
+      }
+      return a.build - b.build;
+    });
+    return candidates[candidates.length - 1];
+  }
+
   async function checkForUpdates() {
     if (updateCheckBusy) return;
     setUpdateCheckBusy(true);
@@ -2858,7 +2916,8 @@ export default function App() {
         'https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/version.json?t=' + Date.now()
       );
       if (!response.ok) throw new Error('Impossibile leggere le informazioni online (HTTP ' + response.status + ').');
-      const latest = await response.json();
+      const manifest = await response.json();
+      const latest = await resolveLatestICloudRelease(manifest);
       const installedVersion = String(
         Constants.nativeAppVersion || Constants.expoConfig?.version || '0.0.0'
       );
