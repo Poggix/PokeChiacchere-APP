@@ -137,8 +137,10 @@ jobs:
             echo "::warning::Upload iCloud saltato: configura ICLOUD_USERNAME, ICLOUD_PASSWORD e ICLOUD_FOLDER_PATH nei GitHub Secrets."
             exit 0
           fi
-          python3 -m pip install pyicloud
-          python3 scripts/upload_icloud.py
+          python3 -m venv .venv-icloud
+          .venv-icloud/bin/python -m pip install --upgrade pip
+          .venv-icloud/bin/python -m pip install pyicloud
+          .venv-icloud/bin/python scripts/upload_icloud.py
 
       - name: Carica anche l'artifact della compilazione
         uses: actions/upload-artifact@v4
