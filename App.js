@@ -588,6 +588,7 @@ export default function App() {
           email: session.user.email || '',
           last_seen_at: new Date().toISOString(),
           is_active: true,
+          app_version: '2.5.1',
         }),
       });
       const presenceRows = await api('/rest/v1/member_presence?select=*&order=last_seen_at.desc', token);
@@ -2879,7 +2880,10 @@ export default function App() {
               <View key={p.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
                 {p.avatar_url ? <Image source={{ uri: p.avatar_url }} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.panel2 }} /> : <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.green, fontWeight: '900' }}>{displayName[0]?.toUpperCase() || '?'}</Text></View>}
                 <View style={{ flex: 1 }}>
-                  <Text style={s.panelTitle}>{displayName}{isMe ? ' (tu)' : ''}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 7 }}>
+                    <Text style={s.panelTitle}>{displayName}{isMe ? ' (tu)' : ''}</Text>
+                    {!!presence?.app_version && <Text style={{ color: C.muted, fontSize: 11, fontWeight: '700' }}>v{presence.app_version}</Text>}
+                  </View>
                   <Text style={s.mutedSmall}>{active ? '● Attivo ora' : presence?.last_seen_at ? 'Ultimo accesso: ' + new Date(presence.last_seen_at).toLocaleString('it-IT') : 'Nessun accesso registrato'}</Text>
                 </View>
                 <View
