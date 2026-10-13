@@ -3,6 +3,9 @@ name: Build PokeChiacchere IPA
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -24,9 +27,11 @@ jobs:
           BUILD=$(node -p "require('./app.json').expo.ios.buildNumber || '1'")
           SAFE_VERSION=$(echo "$VERSION" | tr '/' '-')
           FILE_NAME="PokeChiacchere-v${SAFE_VERSION}-build${BUILD}"
+          TAG="v${SAFE_VERSION}-build${BUILD}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "file_name=$FILE_NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Compilazione: $FILE_NAME"
 
       - name: Installa e sincronizza le dipendenze
@@ -84,7 +89,43 @@ jobs:
           cd "$RUNNER_TEMP/ipa"
           zip -qry "$GITHUB_WORKSPACE/${FILE_NAME}.ipa" Payload
 
-      - name: Carica IPA con nome versione
+      - name: Pubblica IPA su GitHub Releases e aggiorna version.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.app_version.outputs.version }}
+          BUILD: ${{ steps.app_version.outputs.build }}
+          FILE_NAME: ${{ steps.app_version.outputs.file_name }}
+          TAG: ${{ steps.app_version.outputs.tag }}
+        run: |
+          IPA_PATH="${FILE_NAME}.ipa"
+          DOWNLOAD_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${IPA_PATH}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$IPA_PATH" --clobber
+          else
+            gh release create "$TAG" "$IPA_PATH" \
+              --target "$GITHUB_SHA" \
+              --title "PokeChiacchere v${VERSION} build ${BUILD}" \
+              --notes "IPA generata automaticamente da GitHub Actions."
+          fi
+
+          jq --arg version "$VERSION" \
+             --argjson build "$BUILD" \
+             --arg url "$DOWNLOAD_URL" \
+             --arg notes "Versione ${VERSION} build ${BUILD}" \
+             '.version = $version | .build = $build | .download_url = $url | .notes = $notes' \
+             version.json > version.json.tmp
+          mv version.json.tmp version.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update version.json for v${VERSION} build ${BUILD}"
+            git push
+          fi
+
+      - name: Carica anche l'artifact della compilazione
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.app_version.outputs.file_name }}
