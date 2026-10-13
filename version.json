@@ -1,6 +1,5 @@
 {
-  "version": "2.5.5",
-  "build": 8,
-  "download_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE/PokeChiacchere-v2.5.5-build8.ipa",
-  "notes": "Versione 2.5.5 build 8"
+  "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
+  "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
+  "notes": "La versione e la build vengono ricavate dal nome della IPA più recente trovata nella cartella iCloud condivisa."
 }
