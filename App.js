@@ -2964,20 +2964,34 @@ export default function App() {
               onPress: async () => {
                 try {
                   const safeVersion = latestVersion.replace(/[^0-9.]/g, '_');
-                  const fileUri = FileSystem.cacheDirectory + 'PokeChiacchere-v' + safeVersion + '-build' + latestBuild + '.ipa';
+                  // Conserva la IPA nella directory documenti dell'app invece che nella cache,
+                  // così il file resta disponibile durante il passaggio al menu di condivisione.
+                  const fileName = 'PokeChiacchere-v' + safeVersion + '-build' + latestBuild + '.ipa';
+                  const baseDirectory = FileSystem.documentDirectory;
+                  if (!baseDirectory) {
+                    throw new Error('La cartella documenti temporanea non è disponibile su questo dispositivo.');
+                  }
+                  const fileUri = baseDirectory + fileName;
+                  const existing = await FileSystem.getInfoAsync(fileUri);
+                  if (existing.exists) {
+                    await FileSystem.deleteAsync(fileUri, { idempotent: true });
+                  }
+
                   const downloaded = await FileSystem.downloadAsync(downloadUrl, fileUri);
                   if (downloaded.status < 200 || downloaded.status >= 300) {
                     throw new Error('Download non riuscito (HTTP ' + downloaded.status + ').');
                   }
 
                   const info = await FileSystem.getInfoAsync(downloaded.uri);
-                  if (!info.exists || !info.size || info.size < 100000) {
-                    throw new Error('Il file scaricato è troppo piccolo o non è una IPA valida. Verifica che download_url punti direttamente al file .ipa, non a una pagina iCloud.');
+                  if (!info.exists || !info.size || info.size < 100000 || !downloaded.uri.toLowerCase().endsWith('.ipa')) {
+                    throw new Error('Il file scaricato non esiste, è troppo piccolo o non conserva l’estensione .ipa. Verifica che download_url punti direttamente alla IPA.');
                   }
 
+                  // public.item è più generico e spesso più compatibile con le app
+                  // che importano documenti dal foglio di condivisione di iOS.
                   await Sharing.shareAsync(downloaded.uri, {
                     mimeType: 'application/octet-stream',
-                    UTI: 'com.apple.itunes.ipa',
+                    UTI: 'public.item',
                     dialogTitle: 'Apri la IPA con SideStore'
                   });
                 } catch (error) {
