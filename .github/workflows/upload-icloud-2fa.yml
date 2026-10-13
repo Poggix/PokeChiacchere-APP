@@ -33,7 +33,7 @@ jobs:
       - name: Prepara sessione
         env:
           SESSION_KEY: ${{ secrets.ICLOUD_SESSION_ENCRYPTION_KEY }}
-          SESSION_DIR: ${{ runner.temp }}/pyicloud-session
+          SESSION_DIR: ${{ runner.temp }}/icloudpy-session
         run: |
           set -euo pipefail
           test -n "$SESSION_KEY" || { echo "::error::Manca ICLOUD_SESSION_ENCRYPTION_KEY nei repository Secrets."; exit 1; }
@@ -65,7 +65,7 @@ jobs:
           ICLOUD_PASSWORD: ${{ secrets.ICLOUD_PASSWORD }}
           ICLOUD_FOLDER_PATH: ${{ secrets.ICLOUD_FOLDER_PATH }}
           ICLOUD_2FA_CODE: ${{ inputs.icloud_2fa_code }}
-          ICLOUD_SESSION_DIR: ${{ runner.temp }}/pyicloud-session
+          ICLOUD_SESSION_DIR: ${{ runner.temp }}/icloudpy-session
         run: |
           set -euo pipefail
           if [ -n "${ICLOUD_2FA_CODE:-}" ]; then echo "::add-mask::$ICLOUD_2FA_CODE"; fi
@@ -75,14 +75,14 @@ jobs:
           fi
           python3 -m venv .venv-icloud
           .venv-icloud/bin/python -m pip install --upgrade pip
-          .venv-icloud/bin/python -m pip install pyicloud
+          .venv-icloud/bin/python -m pip install "icloudpy>=0.10.0"
           .venv-icloud/bin/python scripts/upload_icloud.py
 
       - name: Cifra sessione per i run successivi
         if: success()
         env:
           SESSION_KEY: ${{ secrets.ICLOUD_SESSION_ENCRYPTION_KEY }}
-          SESSION_DIR: ${{ runner.temp }}/pyicloud-session
+          SESSION_DIR: ${{ runner.temp }}/icloudpy-session
         run: |
           set -euo pipefail
           tar -czf - -C "$SESSION_DIR" . | openssl enc -aes-256-cbc -pbkdf2 -salt -out .icloud-session.enc -pass env:SESSION_KEY
