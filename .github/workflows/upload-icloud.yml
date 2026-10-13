@@ -3,10 +3,6 @@ name: Upload IPA su iCloud
 on:
   workflow_dispatch:
     inputs:
-      icloud_2fa_code:
-        description: "Codice Apple 2FA (solo se richiesto)"
-        required: false
-        type: string
       release_tag:
         description: "Tag della release da caricare (vuoto = ultima release)"
         required: false
@@ -53,7 +49,7 @@ jobs:
           ICLOUD_USERNAME: ${{ secrets.ICLOUD_USERNAME }}
           ICLOUD_PASSWORD: ${{ secrets.ICLOUD_PASSWORD }}
           ICLOUD_FOLDER_PATH: ${{ secrets.ICLOUD_FOLDER_PATH }}
-          ICLOUD_2FA_CODE: ${{ inputs.icloud_2fa_code }}
+          ICLOUD_2FA_CODE: ""
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "$ICLOUD_2FA_CODE" ]; then
