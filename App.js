@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
+import PokeLocation from './modules/poke-location';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
@@ -3663,6 +3664,13 @@ export default function App() {
         const detail = await initialResponse.text().catch(() => '');
         throw new Error('Supabase non ha salvato la posizione (HTTP ' + initialResponse.status + '). ' + (detail || 'Controlla partner_locations e le policy RLS.'));
       }
+      // Avvia il tracker nativo Core Location, indipendente dal task JavaScript Expo.
+      await PokeLocation.startTracking(
+        storedSession.user.id,
+        storedSession.access_token,
+        storedSession.refresh_token || '',
+        Number(storedSession.expires_at || 0)
+      );
       // Applica una sola volta le nuove opzioni anche ai task già esistenti;
       // dopo, non interrompere più il tracciamento a ogni ritorno in primo piano.
       const locationConfigApplied = await AsyncStorage.getItem('pokechiacchere_location_config_314');
@@ -3693,6 +3701,7 @@ export default function App() {
 
   async function disablePartnerLocationSharing() {
     try {
+      await PokeLocation.stopTracking().catch(() => {});
       if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
         await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
       }
