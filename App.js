@@ -3445,11 +3445,96 @@ export default function App() {
     }
   }
 
+  async function enablePartnerLocationSharing() {
+    Alert.alert(
+      'Condividere la posizione?',
+      'La posizione del tuo iPhone verrà inviata a Supabase in background e sarà visibile soltanto all’owner di PokeChiacchere. Puoi interrompere la condivisione da questa schermata.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        { text: 'Continua', onPress: async () => {
+          try {
+            const foreground = await Location.requestForegroundPermissionsAsync();
+            if (foreground.status !== 'granted') {
+              Alert.alert('Permesso necessario', 'Consenti la posizione mentre usi l’app per continuare.');
+              return;
+            }
+            const background = await Location.requestBackgroundPermissionsAsync();
+            if (background.status !== 'granted') {
+              Alert.alert('Permesso background necessario', 'Per gli aggiornamenti in background, imposta la localizzazione su Sempre nelle Impostazioni di iOS.');
+              return;
+            }
+            const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
+            if (registered) await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
+            await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
+              accuracy: Location.Accuracy.Balanced,
+              distanceInterval: 100,
+              timeInterval: 60000,
+              pausesUpdatesAutomatically: false,
+              showsBackgroundLocationIndicator: true,
+              foregroundService: {
+                notificationTitle: 'Condivisione posizione attiva',
+                notificationBody: 'La posizione viene condivisa con l’owner di PokeChiacchere.',
+              },
+            });
+            Alert.alert('Condivisione attivata', 'iOS può comunque limitare gli aggiornamenti e non garantisce un tracciamento continuo.');
+          } catch (e) {
+            Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
+          }
+        }},
+      ]
+    );
+  }
+
+  async function disablePartnerLocationSharing() {
+    try {
+      if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
+        await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
+      }
+      Alert.alert('Condivisione disattivata', 'Il telefono non invierà più nuove posizioni.');
+    } catch (e) {
+      Alert.alert('Errore', e?.message || 'Non è stato possibile disattivare la condivisione.');
+    }
+  }
+
+  async function viewPartnerLocation() {
+    try {
+      const response = await fetch(URL + '/rest/v1/partner_locations?select=user_id,latitude,longitude,accuracy,updated_at&user_id=neq.' + encodeURIComponent(OWNER_USER_ID) + '&order=updated_at.desc&limit=1', {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
+      });
+      if (!response.ok) throw new Error('Supabase ha restituito ' + response.status);
+      const rows = await response.json();
+      if (!rows.length) {
+        Alert.alert('Posizione socio', 'Nessuna posizione ricevuta. Il socio deve attivare la condivisione e autorizzare la localizzazione.');
+        return;
+      }
+      const p = rows[0];
+      const date = new Date(p.updated_at).toLocaleString('it-IT');
+      Alert.alert('Posizione socio', 'Ultimo aggiornamento: ' + date + '\\nPrecisione: ' + (p.accuracy == null ? 'sconosciuta' : Math.round(p.accuracy) + ' m') + '\\nCoordinate: ' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5), [
+        { text: 'Chiudi', style: 'cancel' },
+        { text: 'Apri mappa', onPress: () => Linking.openURL('https://maps.apple.com/?ll=' + p.latitude + ',' + p.longitude) },
+      ]);
+    } catch (e) {
+      Alert.alert('Posizione non disponibile', e?.message || 'Controlla la connessione e le policy Supabase.');
+    }
+  }
+
   function renderSettings() {
     const currentProfile = profiles.find((p) => p.user_id === session?.user?.id);
     return (
       <>
         {header('Impostazioni', 'Profilo personale e controllo delle attività')}
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>{isOwner ? 'Posizione socio' : 'Condivisione posizione'}</Text>
+          <Text style={s.mutedSmall}>{isOwner ? 'Solo il tuo account owner può leggere la posizione condivisa dal socio.' : 'Se attivi la condivisione, la posizione del tuo iPhone sarà visibile soltanto all’owner. Puoi disattivarla in qualsiasi momento.'}</Text>
+          {isOwner ? (
+            <Button title="Visualizza posizione socio" type="secondary" onPress={viewPartnerLocation} />
+          ) : (
+            <>
+              <Button title="Attiva condivisione posizione" onPress={enablePartnerLocationSharing} />
+              <Button title="Disattiva condivisione posizione" type="danger" onPress={disablePartnerLocationSharing} />
+            </>
+          )}
+        </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Il mio profilo</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
