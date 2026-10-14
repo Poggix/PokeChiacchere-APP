@@ -3537,13 +3537,13 @@ export default function App() {
                   });
                   Alert.alert(
                     'IPA scaricata',
-                    'File completo salvato nella sezione Aggiornamenti dell’app. Da lì premi “Condividi IPA con SideStore”.'
+                    'File completo salvato nella sezione Aggiornamenti dell’app.\n\nApri Impostazioni → Aggiornamenti e premi “Condividi IPA con SideStore” quando vuoi installarlo.'
                   );
                 } catch (error) {
                   Alert.alert(
                     'Download aggiornamento non riuscito',
                     (error?.message || 'Errore durante il download.') +
-                      '\\n\\nNota: download_url deve essere un link diretto al file IPA. Un link a una cartella o pagina di iCloud potrebbe scaricare una pagina web invece dell’app.'
+                      '\n\nNota: download_url deve essere un link diretto al file IPA. Un link a una cartella o pagina di iCloud potrebbe scaricare una pagina web invece dell’app.'
                   );
                 }
               },
@@ -3652,8 +3652,8 @@ export default function App() {
       const status = isLive
         ? 'Posizione recente (aggiornata negli ultimi 2 minuti)'
         : 'Posizione live non disponibile: mostro l’ultima posizione salvata';
-      const age = ageMinutes === null ? '' : '\\nEtà del dato: ' + (ageMinutes < 1 ? 'meno di un minuto' : ageMinutes + (ageMinutes === 1 ? ' minuto' : ' minuti'));
-      Alert.alert(isLive ? 'Posizione socio · Recente' : 'Posizione socio · Ultima nota', status + '\\nUltimo aggiornamento: ' + date + age + '\\nPrecisione: ' + (p.accuracy == null ? 'sconosciuta' : Math.round(p.accuracy) + ' m') + '\\nCoordinate: ' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5), [
+      const age = ageMinutes === null ? '' : '\nEtà del dato: ' + (ageMinutes < 1 ? 'meno di un minuto' : ageMinutes + (ageMinutes === 1 ? ' minuto' : ' minuti'));
+      Alert.alert(isLive ? 'Posizione socio · Recente' : 'Posizione socio · Ultima nota', status + '\nUltimo aggiornamento: ' + date + age + '\nPrecisione: ' + (p.accuracy == null ? 'sconosciuta' : Math.round(p.accuracy) + ' m') + '\\nCoordinate: ' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5), [
         { text: 'Chiudi', style: 'cancel' },
         { text: 'Apri mappa', onPress: () => Linking.openURL('https://maps.apple.com/?ll=' + p.latitude + ',' + p.longitude) },
       ]);
