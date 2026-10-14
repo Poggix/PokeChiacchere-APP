@@ -37,6 +37,7 @@ Notifications.setNotificationHandler({
 const URL = 'https://omovacbvfhmtjqrrgszx.supabase.co';
 const KEY = 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9';
 const NOTIFICATION_FUNCTION_URL = `${URL}/functions/v1/rapid-processor`;
+const WHATSAPP_FUNCTION_URL = `${URL}/functions/v1/whatsapp-notifications`;
 // Sostituisci questo valore con l'UUID del tuo utente in Supabase > Authentication > Users.
 const OWNER_USER_ID = '01bf546e-bf28-46ac-8370-b4fe30d8a8fd';
 const INSTALLED_APP_VERSION = String(
@@ -209,6 +210,11 @@ export default function App() {
   const [notificationTitle, setNotificationTitle] = useState('PokeChiacchere');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationBusy, setNotificationBusy] = useState(false);
+  const [whatsappRecipients, setWhatsappRecipients] = useState([]);
+  const [whatsappRecipientName, setWhatsappRecipientName] = useState('');
+  const [whatsappRecipientPhone, setWhatsappRecipientPhone] = useState('');
+  const [whatsappRecipientsBusy, setWhatsappRecipientsBusy] = useState(false);
+  const [whatsappRecipientSaving, setWhatsappRecipientSaving] = useState(false);
   const [form, setForm] = useState({});
   const [editing, setEditing] = useState(null);
   const [picker, setPicker] = useState(null);
@@ -431,88 +437,123 @@ export default function App() {
     }
   }
 
+  async function callWhatsAppAction(action, params = {}) {
+    const response = await fetch(WHATSAPP_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...params }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || payload.message || `Errore HTTP ${response.status}`);
+    }
+    return payload;
+  }
+
+  async function loadWhatsAppRecipients() {
+    if (!isOwner || !token) return;
+    setWhatsappRecipientsBusy(true);
+    try {
+      const payload = await callWhatsAppAction('whatsapp-list');
+      setWhatsappRecipients(Array.isArray(payload.recipients) ? payload.recipients : []);
+    } catch (e) {
+      Alert.alert('Rubrica WhatsApp', `Impossibile caricare i destinatari: ${e.message}`);
+    } finally {
+      setWhatsappRecipientsBusy(false);
+    }
+  }
+
+  async function addWhatsAppRecipient() {
+    const name = whatsappRecipientName.trim();
+    const phone = whatsappRecipientPhone.trim();
+    if (!name || !phone) {
+      Alert.alert('Rubrica WhatsApp', 'Inserisci nome e numero internazionale, ad esempio +393331234567.');
+      return;
+    }
+    setWhatsappRecipientSaving(true);
+    try {
+      await callWhatsAppAction('whatsapp-add', { name, phone, enabled: true });
+      setWhatsappRecipientName('');
+      setWhatsappRecipientPhone('');
+      await loadWhatsAppRecipients();
+      Alert.alert('Destinatario aggiunto', 'Il numero è stato salvato in rubrica.');
+    } catch (e) {
+      Alert.alert('Aggiunta non riuscita', e.message);
+    } finally {
+      setWhatsappRecipientSaving(false);
+    }
+  }
+
+  async function toggleWhatsAppRecipient(recipient) {
+    try {
+      await callWhatsAppAction('whatsapp-toggle', {
+        id: recipient.id,
+        enabled: !recipient.enabled,
+      });
+      await loadWhatsAppRecipients();
+    } catch (e) {
+      Alert.alert('Modifica non riuscita', e.message);
+    }
+  }
+
+  function deleteWhatsAppRecipient(recipient) {
+    Alert.alert(
+      'Eliminare destinatario?',
+      `Vuoi rimuovere ${recipient.name} (${recipient.phone_e164}) dalla rubrica?`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Elimina',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await callWhatsAppAction('whatsapp-delete', { id: recipient.id });
+              await loadWhatsAppRecipients();
+            } catch (e) {
+              Alert.alert('Eliminazione non riuscita', e.message);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   async function sendPartnerNotification() {
     const title = notificationTitle.trim();
     const message = notificationMessage.trim();
     if (!isOwner) {
-      Alert.alert(
-        'Accesso non autorizzato',
-        'Solo il proprietario configurato può inviare notifiche.'
-      );
+      Alert.alert('Accesso non autorizzato', 'Solo il proprietario configurato può inviare messaggi WhatsApp.');
       return;
     }
     if (!title || !message) {
-      Alert.alert('Notifica', 'Inserisci un titolo e un messaggio.');
+      Alert.alert('WhatsApp', 'Inserisci un titolo e un messaggio.');
+      return;
+    }
+    const activeCount = whatsappRecipients.filter((item) => item.enabled).length;
+    if (!activeCount) {
+      Alert.alert('WhatsApp', 'Aggiungi e attiva almeno un destinatario nella rubrica.');
       return;
     }
     setNotificationBusy(true);
     try {
-      const response = await fetch(NOTIFICATION_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title, body: message, recipient: 'all' }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(
-          payload.error || payload.message || `Errore HTTP ${response.status}`
-        );
-      // Una risposta HTTP 2xx dalla Edge Function non dimostra, da sola,
-      // che Expo/APNs abbia accettato o consegnato la notifica.
-      const tickets = Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload?.tickets)
-          ? payload.tickets
-          : Array.isArray(payload?.results)
-            ? payload.results
-            : [];
-      const ticketErrors = tickets
-        .filter((ticket) => ticket?.status === 'error' || ticket?.details?.error)
-        .map((ticket) => {
-          const code = ticket?.details?.error || ticket?.message || 'Errore push';
-          return String(code);
-        });
-      const serverErrors = Array.isArray(payload?.errors)
-        ? payload.errors.map((item) =>
-            typeof item === 'string' ? item : item?.message || item?.error || JSON.stringify(item)
-          )
-        : [];
-      const errors = [...ticketErrors, ...serverErrors];
-      const acceptedCount =
-        typeof payload?.sent === 'number'
-          ? payload.sent
-          : typeof payload?.accepted === 'number'
-            ? payload.accepted
-            : tickets.filter((ticket) => ticket?.status === 'ok').length;
-
-      if (errors.length > 0) {
-        Alert.alert(
-          'Problemi nell’invio push',
-          errors.slice(0, 4).join('\\n') +
-            (errors.length > 4 ? '\\n…' : '') +
-            '\\n\\nSe compare DeviceNotRegistered, il token salvato non è più valido. Se il server non riporta errori, va verificato anche l’entitlement aps-environment della firma iOS.'
-        );
-      } else if (tickets.length > 0 || typeof payload?.sent === 'number' || typeof payload?.accepted === 'number') {
-        Alert.alert(
-          'Richiesta elaborata',
-          `Expo ha accettato ${acceptedCount} ticket secondo la risposta del server. Questo non conferma la consegna al dispositivo: bisogna controllare le ricevute Expo e la firma APNs dell’app.`
-        );
-      } else {
-        Alert.alert(
-          'Richiesta ricevuta dal server',
-          'La Edge Function ha risposto correttamente, ma non ha restituito i ticket Expo né le ricevute di consegna. Non è possibile confermare che la notifica sia stata accettata da Expo o consegnata. Controlla la risposta della funzione rapid-processor e l’entitlement aps-environment della build iOS.'
-        );
-      }
-      setNotificationMessage('');
-    } catch (e) {
+      const payload = await callWhatsAppAction('whatsapp-send', { title, body: message });
+      const results = Array.isArray(payload.results) ? payload.results : [];
+      const failures = results.filter((item) => !item.ok);
+      const successes = results.filter((item) => item.ok).length;
+      const details = failures.slice(0, 4).map((item) => `${item.name || item.phone || 'Destinatario'}: ${item.error || 'invio non riuscito'}`);
       Alert.alert(
-        'Invio non riuscito',
-        `${e.message}\nControlla la Edge Function rapid-processor e la configurazione push.`
+        failures.length ? 'Invio WhatsApp parziale' : 'Richieste WhatsApp inviate',
+        `Accettati da Meta: ${successes} su ${Number(payload.total || results.length)}.` +
+          (details.length ? `\n\nErrori:\n${details.join('\n')}` : '') +
+          '\n\nL’accettazione da parte di Meta non garantisce la consegna finale al telefono.'
       );
+      if (successes > 0) setNotificationMessage('');
+    } catch (e) {
+      Alert.alert('Invio WhatsApp non riuscito', `${e.message}\nControlla la Edge Function whatsapp-notifications, il template e i Secrets Meta.`);
     } finally {
       setNotificationBusy(false);
     }
@@ -554,6 +595,10 @@ export default function App() {
       console.warn('Notifica automatica non inviata:', e?.message || e);
     }
   }
+
+  useEffect(() => {
+    if (token && page === 'notifications' && isOwner) loadWhatsAppRecipients();
+  }, [page, token, isOwner]);
 
   useEffect(() => {
     const received = Notifications.addNotificationReceivedListener((notification) => {
@@ -1471,12 +1516,86 @@ export default function App() {
   function renderNotifications() {
     return (
       <>
-        {header('Notifiche al socio', 'Invia un avviso a tutti gli utenti, incluso il proprietario')}
+        {header('Notifiche al socio', 'Invia messaggi WhatsApp ai numeri scelti')}
         <View style={s.panel}>
-          <Text style={s.panelTitle}>Nuova notifica push</Text>
+          <Text style={s.panelTitle}>Rubrica WhatsApp</Text>
           <Text style={s.mutedSmall}>
-            Tutti gli utenti che hanno installato l’app e autorizzato le notifiche push, incluso il proprietario, riceveranno l’avviso
-            sul proprio dispositivo.
+            Inserisci i numeri in formato internazionale con prefisso +. Solo i destinatari attivi riceveranno i messaggi.
+          </Text>
+          <Field
+            label="Nome destinatario"
+            value={whatsappRecipientName}
+            onChangeText={setWhatsappRecipientName}
+            placeholder="Es. Socio"
+          />
+          <Field
+            label="Numero WhatsApp"
+            value={whatsappRecipientPhone}
+            onChangeText={setWhatsappRecipientPhone}
+            keyboardType="phone-pad"
+            placeholder="+393331234567"
+          />
+          <Button
+            title={whatsappRecipientSaving ? 'Salvataggio…' : '＋ Aggiungi destinatario'}
+            onPress={addWhatsAppRecipient}
+            type="success"
+          />
+          <View style={{ marginTop: 14 }}>
+            <Button
+              title={whatsappRecipientsBusy ? 'Aggiornamento…' : '↻ Aggiorna rubrica'}
+              onPress={loadWhatsAppRecipients}
+              type="secondary"
+            />
+          </View>
+          {whatsappRecipients.length === 0 ? (
+            <Text style={[s.empty, { marginTop: 12 }]}>
+              Nessun destinatario in rubrica. Aggiungi un numero per iniziare.
+            </Text>
+          ) : (
+            whatsappRecipients.map((recipient) => (
+              <View
+                key={recipient.id}
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: C.border,
+                  backgroundColor: C.panel2,
+                }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.recordTitle}>{recipient.name}</Text>
+                    <Text style={s.recordSub}>{recipient.phone_e164}</Text>
+                    <Text style={{ color: recipient.enabled ? C.green : C.muted, marginTop: 5, fontWeight: '700' }}>
+                      {recipient.enabled ? 'ATTIVO · riceve i messaggi' : 'DISATTIVATO · escluso dagli invii'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      title={recipient.enabled ? 'Disattiva' : 'Attiva'}
+                      type="secondary"
+                      onPress={() => toggleWhatsAppRecipient(recipient)}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      title="Elimina"
+                      type="danger"
+                      onPress={() => deleteWhatsAppRecipient(recipient)}
+                    />
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Nuovo messaggio WhatsApp</Text>
+          <Text style={s.mutedSmall}>
+            Il titolo e il testo verranno inseriti nel modello approvato da Meta. L’invio ai gruppi è disabilitato finché non sarà verificata l’idoneità dell’account.
           </Text>
           <Field
             label="Titolo"
@@ -1492,31 +1611,26 @@ export default function App() {
               placeholder="Scrivi qui il messaggio da inviare…"
               placeholderTextColor={C.muted}
               multiline
-              maxLength={500}
+              maxLength={1000}
             />
           </View>
           <Button
-            title={
-              notificationBusy ? 'Invio in corso…' : 'Invia notifica al socio'
-            }
+            title={notificationBusy ? 'Invio in corso…' : 'Invia via WhatsApp'}
             onPress={sendPartnerNotification}
           />
           <Text style={s.mutedSmall}>
-            L’invio è autorizzato dalla Edge Function rapid-processor.
+            Questo pulsante usa esclusivamente WhatsApp. Le notifiche automatiche restano separate.
           </Text>
         </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Notifiche automatiche</Text>
           <Text style={s.mutedText}>
-            Quando questo account proprietario registra una nuova vendita o un
-            nuovo prelievo, viene inviata una notifica al socio. Le modifiche ai
-            record esistenti non generano notifiche.
+            Le notifiche automatiche di nuove vendite e prelievi restano gestite separatamente dalla funzione rapid-processor.
           </Text>
         </View>
       </>
     );
   }
-
   function renderHome() {
     return (
       <>
