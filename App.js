@@ -3199,6 +3199,50 @@ export default function App() {
     }
   }
 
+  async function openDownloadedIpaFolder() {
+    try {
+      const directory = FileSystem.documentDirectory;
+      if (!directory) throw new Error('Cartella documenti non disponibile.');
+      const names = await FileSystem.readDirectoryAsync(directory);
+      const ipaFiles = [];
+      for (const name of names.filter((item) => /\\.ipa$/i.test(item))) {
+        const uri = directory + name;
+        const info = await FileSystem.getInfoAsync(uri);
+        if (info.exists) ipaFiles.push({ name, uri, size: info.size || 0 });
+      }
+      if (!ipaFiles.length) {
+        Alert.alert('Cartella IPA scaricate', 'Non ci sono file IPA nella cartella documenti dell’app.');
+        return;
+      }
+      const totalMb = ipaFiles.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024);
+      const summary = ipaFiles.map((file) => '• ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(1) + ' MB)').join('\\n');
+      Alert.alert(
+        'IPA scaricate (' + ipaFiles.length + ')',
+        summary + '\\n\\nSpazio totale: ' + totalMb.toFixed(1) + ' MB',
+        [
+          { text: 'Chiudi', style: 'cancel' },
+          {
+            text: 'Elimina tutte le IPA',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                for (const file of ipaFiles) {
+                  await FileSystem.deleteAsync(file.uri, { idempotent: true });
+                }
+                setDownloadedIpa((current) => current && ipaFiles.some((file) => file.uri === current.uri) ? null : current);
+                Alert.alert('Pulizia completata', 'Eliminate ' + ipaFiles.length + ' IPA per liberare circa ' + totalMb.toFixed(1) + ' MB.');
+              } catch (error) {
+                Alert.alert('Pulizia incompleta', error?.message || 'Non è stato possibile eliminare tutti i file.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Cartella non disponibile', error?.message || 'Impossibile leggere i file IPA.');
+    }
+  }
+
   async function checkForUpdates() {
     if (updateCheckBusy) return;
     setUpdateCheckBusy(true);
@@ -3401,6 +3445,7 @@ export default function App() {
           <Text style={s.panelTitle}>Aggiornamenti app</Text>
           <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
           <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
+          <Button title="Apri cartella IPA scaricate" type="secondary" onPress={openDownloadedIpaFolder} />
           {downloadedIpa ? (
             <View style={{ backgroundColor: C.panel2, borderRadius: 12, padding: 13, marginTop: 12 }}>
               <Text style={{ color: C.green, fontSize: 13, fontWeight: '900' }}>IPA pronta per la condivisione</Text>
