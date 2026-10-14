@@ -48,7 +48,7 @@ TaskManager.defineTask(PARTNER_LOCATION_TASK, async ({ data, error }) => {
     const stored = raw ? JSON.parse(raw) : null;
     if (!stored?.access_token || !stored?.user?.id) return;
     const location = data.locations[data.locations.length - 1];
-    const response = await fetch('https://omovacbvfhmtjqrrgszx.supabase.co/rest/v1/partner_locations', {
+    const response = await fetch('https://omovacbvfhmtjqrrgszx.supabase.co/rest/v1/partner_locations?on_conflict=user_id', {
       method: 'POST',
       headers: {
         apikey: 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9',
