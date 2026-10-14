@@ -3199,6 +3199,65 @@ export default function App() {
     }
   }
 
+  async function showStorageDiagnostics() {
+    const formatSize = (bytes) => {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    };
+    const scanDirectory = async (uri, depth = 0) => {
+      if (!uri) return { files: [], total: 0, error: null };
+      const files = [];
+      let total = 0;
+      try {
+        const entries = await FileSystem.readDirectoryAsync(uri);
+        for (const name of entries) {
+          const childUri = uri.endsWith('/') ? uri + name : uri + '/' + name;
+          try {
+            const info = await FileSystem.getInfoAsync(childUri);
+            if (!info.exists) continue;
+            if (info.isDirectory) {
+              if (depth < 2) {
+                const nested = await scanDirectory(childUri, depth + 1);
+                total += nested.total;
+                files.push(...nested.files);
+              } else {
+                files.push({ name: childUri, size: 0, kind: 'Cartella (non esplorata)' });
+              }
+            } else {
+              const size = info.size || 0;
+              total += size;
+              files.push({ name, uri: childUri, size, kind: /\\.ipa$/i.test(name) ? 'IPA' : 'File' });
+            }
+          } catch (_) {}
+        }
+      } catch (error) {
+        return { files, total, error: error?.message || String(error) };
+      }
+      return { files, total, error: null };
+    };
+    try {
+      const doc = await scanDirectory(FileSystem.documentDirectory);
+      const cache = await scanDirectory(FileSystem.cacheDirectory);
+      const ipa = [...doc.files, ...cache.files].filter((f) => f.kind === 'IPA');
+      const largest = [...doc.files.map((f) => ({ ...f, area: 'Documenti' })), ...cache.files.map((f) => ({ ...f, area: 'Cache' }))]
+        .sort((a, b) => b.size - a.size).slice(0, 12);
+      const lines = [
+        'Documenti: ' + formatSize(doc.total),
+        'Cache: ' + formatSize(cache.total),
+        'IPA trovate: ' + ipa.length + ' (' + formatSize(ipa.reduce((n, f) => n + f.size, 0)) + ')',
+        '',
+        'File più grandi (fino a 12):',
+        ...(largest.length ? largest.map((f) => '• [' + f.area + '] ' + f.name + ' — ' + formatSize(f.size)) : ['Nessun file accessibile trovato.']),
+        '',
+        'Nota: iOS può conteggiare anche database, storage interno e dati non esposti da queste cartelle.'
+      ];
+      Alert.alert('Diagnostica memoria', lines.join('\\n').slice(0, 3800), [{ text: 'OK' }]);
+    } catch (error) {
+      Alert.alert('Diagnostica non disponibile', error?.message || 'Impossibile analizzare la memoria.');
+    }
+  }
+
   async function openDownloadedIpaFolder() {
     try {
       const directory = FileSystem.documentDirectory;
@@ -3446,6 +3505,7 @@ export default function App() {
           <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
           <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
           <Button title="Apri cartella IPA scaricate" type="secondary" onPress={openDownloadedIpaFolder} />
+          <Button title="Diagnostica memoria app" type="secondary" onPress={showStorageDiagnostics} />
           {downloadedIpa ? (
             <View style={{ backgroundColor: C.panel2, borderRadius: 12, padding: 13, marginTop: 12 }}>
               <Text style={{ color: C.green, fontSize: 13, fontWeight: '900' }}>IPA pronta per la condivisione</Text>
