@@ -2,10 +2,18 @@
   "expo": {
     "name": "PokeChiacchere",
     "slug": "pokechiacchere",
-    "version": "2.6.7",
+    "version": "2.6.8",
     "icon": "./assets/icon.png",
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "PokeChiacchere usa la posizione in background per condividerla con l'owner quando attivi la condivisione.",
+          "locationAlwaysPermission": "Consenti la posizione sempre per condividerla con l'owner.",
+          "locationWhenInUsePermission": "Consenti la posizione mentre usi PokeChiacchere."
+        }
+      ]
     ],
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
@@ -13,6 +21,11 @@
       "buildNumber": "1",
       "entitlements": {
         "aps-environment": "development"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "extra": {
