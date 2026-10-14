@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
+import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
@@ -324,6 +325,10 @@ export default function App() {
   const [accountPassword, setAccountPassword] = useState('');
   const [accountBusy, setAccountBusy] = useState(false);
   const [showAccountLogin, setShowAccountLogin] = useState(false);
+  const [partnerMapVisible, setPartnerMapVisible] = useState(false);
+  const [partnerMapLocation, setPartnerMapLocation] = useState(null);
+  const [partnerMapBusy, setPartnerMapBusy] = useState(false);
+  const [partnerMapError, setPartnerMapError] = useState('');
 
   const [records, setRecords] = useState({
     sales: [],
@@ -3609,10 +3614,12 @@ export default function App() {
         accuracy: Location.Accuracy.Balanced,
         distanceInterval: 100,
         timeInterval: 60000,
-        pausesUpdatesAutomatically: true,
+        pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: false,
-        deferredUpdatesDistance: 100,
-        deferredUpdatesInterval: 60000,
+        distanceInterval: 10,
+        timeInterval: 15000,
+        deferredUpdatesDistance: 10,
+        deferredUpdatesInterval: 15000,
       });
     } catch (e) {
       Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
@@ -3630,37 +3637,46 @@ export default function App() {
     }
   }
 
-  async function viewPartnerLocation() {
+  async function fetchPartnerMapLocation(showErrors = false) {
     try {
-      // Consideriamo "live" una posizione aggiornata negli ultimi 2 minuti.
-      // Se non c'è una posizione così recente, usiamo l'ultimo dato salvato.
+      setPartnerMapBusy(true);
       const response = await fetch(URL + '/rest/v1/partner_locations?select=user_id,latitude,longitude,accuracy,updated_at&user_id=neq.' + encodeURIComponent(OWNER_USER_ID) + '&order=updated_at.desc&limit=1', {
         headers: { apikey: KEY, Authorization: 'Bearer ' + token },
       });
-      if (!response.ok) throw new Error('Supabase ha restituito ' + response.status);
+      if (!response.ok) throw new Error('Supabase ha restituito HTTP ' + response.status);
       const rows = await response.json();
-      if (!rows.length) {
-        Alert.alert('Posizione socio', 'Non è ancora stata registrata alcuna posizione dal telefono del socio.');
-        return;
-      }
-
+      if (!rows.length) throw new Error('Non è ancora stata registrata alcuna posizione dal telefono del socio.');
       const p = rows[0];
-      const updatedAt = new Date(p.updated_at).getTime();
-      const isLive = Number.isFinite(updatedAt) && Date.now() - updatedAt <= 2 * 60 * 1000;
-      const date = new Date(p.updated_at).toLocaleString('it-IT');
-      const ageMinutes = Number.isFinite(updatedAt) ? Math.max(0, Math.floor((Date.now() - updatedAt) / 60000)) : null;
-      const status = isLive
-        ? 'Posizione recente (aggiornata negli ultimi 2 minuti)'
-        : 'Posizione live non disponibile: mostro l’ultima posizione salvata';
-      const age = ageMinutes === null ? '' : '\nEtà del dato: ' + (ageMinutes < 1 ? 'meno di un minuto' : ageMinutes + (ageMinutes === 1 ? ' minuto' : ' minuti'));
-      Alert.alert(isLive ? 'Posizione socio · Recente' : 'Posizione socio · Ultima nota', status + '\nUltimo aggiornamento: ' + date + age + '\nPrecisione: ' + (p.accuracy == null ? 'sconosciuta' : Math.round(p.accuracy) + ' m') + '\\nCoordinate: ' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5), [
-        { text: 'Chiudi', style: 'cancel' },
-        { text: 'Apri mappa', onPress: () => Linking.openURL('https://maps.apple.com/?ll=' + p.latitude + ',' + p.longitude) },
-      ]);
+      const next = {
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        accuracy: p.accuracy == null ? null : Number(p.accuracy),
+        updated_at: p.updated_at,
+      };
+      if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)) throw new Error('Le coordinate ricevute non sono valide.');
+      setPartnerMapLocation((old) => old && old.updated_at === next.updated_at ? old : next);
+      setPartnerMapError('');
+      return next;
     } catch (e) {
-      Alert.alert('Posizione non disponibile', e?.message || 'Non è stato possibile recuperare la posizione. Controlla la connessione e le policy Supabase.');
+      setPartnerMapError(e?.message || 'Posizione non disponibile');
+      if (showErrors) Alert.alert('Posizione non disponibile', e?.message || 'Controlla la connessione e le policy Supabase.');
+      return null;
+    } finally {
+      setPartnerMapBusy(false);
     }
   }
+
+  async function viewPartnerLocation() {
+    setPartnerMapVisible(true);
+    await fetchPartnerMapLocation(true);
+  }
+
+  useEffect(() => {
+    if (!partnerMapVisible || !token || !isOwner) return undefined;
+    // Aggiorna la posizione mostrata ogni 5 secondi mentre la mappa è aperta.
+    const timer = setInterval(() => { fetchPartnerMapLocation(false); }, 5000);
+    return () => clearInterval(timer);
+  }, [partnerMapVisible, token, isOwner]);
 
   function renderSettings() {
     const currentProfile = profiles.find((p) => p.user_id === session?.user?.id);
@@ -4149,6 +4165,51 @@ export default function App() {
       </View>
 
       {pickerModal()}
+      <Modal visible={partnerMapVisible} animationType="slide" onRequestClose={() => setPartnerMapVisible(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+          <View style={[s.topBar, { justifyContent: 'space-between' }]}>
+            <View>
+              <Text style={s.brand}>POSIZIONE SOCIO</Text>
+              <Text style={s.topCaption}>AGGIORNAMENTO AUTOMATICO</Text>
+            </View>
+            <TouchableOpacity style={s.refresh} onPress={() => fetchPartnerMapLocation(true)}>
+              <Text style={s.refreshText}>↻</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.refresh, { width: 62 }]} onPress={() => setPartnerMapVisible(false)}>
+              <Text style={[s.buttonText, { color: C.red }]}>Chiudi</Text>
+            </TouchableOpacity>
+          </View>
+          {partnerMapLocation ? (
+            <>
+              <MapView
+                style={{ flex: 1 }}
+                initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
+                region={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
+                showsUserLocation={false}
+                showsCompass
+                showsScale
+              >
+                <Marker coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} title="Socio" description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')} />
+                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(22,139,255,0.8)" fillColor="rgba(22,139,255,0.18)" />}
+              </MapView>
+              <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
+                <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
+                <Text style={s.mutedSmall}>Ultimo dato: {new Date(partnerMapLocation.updated_at).toLocaleString('it-IT')} · Precisione: {partnerMapLocation.accuracy == null ? 'n/d' : Math.round(partnerMapLocation.accuracy) + ' m'}</Text>
+                <Text style={s.mutedSmall}>La mappa controlla nuovi dati ogni 5 secondi. La frequenza effettiva dipende dagli aggiornamenti GPS e dalle limitazioni di iOS.</Text>
+                {partnerMapBusy && <ActivityIndicator color={C.cyan} />}
+                {!!partnerMapError && <Text style={{ color: C.yellow }}>{partnerMapError}</Text>}
+              </View>
+            </>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
+              <ActivityIndicator color={C.cyan} size="large" />
+              <Text style={s.panelTitle}>Recupero posizione…</Text>
+              <Text style={s.mutedSmall}>{partnerMapError || 'In attesa della prima posizione registrata dal telefono del socio.'}</Text>
+              <Button title="Riprova" onPress={() => fetchPartnerMapLocation(true)} />
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
