@@ -3632,8 +3632,9 @@ export default function App() {
       // controlla anche che gli aggiornamenti di posizione siano effettivamente avviati.
       const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
       if (registered) {
-        const started = await Location.hasStartedLocationUpdatesAsync(PARTNER_LOCATION_TASK);
-        if (started) return;
+        // Quando l'app torna in primo piano, acquisisci e salva un nuovo fix:
+        // il fatto che il task risulti avviato non garantisce che l'ultima
+        // posizione salvata sia recente o precisa.
         await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK).catch(() => {});
       }
       const foreground = await Location.requestForegroundPermissionsAsync();
@@ -3654,7 +3655,8 @@ export default function App() {
       if (!storedSession?.access_token || !storedSession?.user?.id || storedSession.user.id === OWNER_USER_ID) {
         throw new Error('Sessione del socio non valida per la condivisione della posizione. Accedi con l’account del socio.');
       }
-      const initialPosition = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      // Per la posizione condivisa usa alta precisione anche sul primo rilevamento.
+      const initialPosition = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const initialResponse = await fetch(URL + '/rest/v1/partner_locations?on_conflict=user_id', {
         method: 'POST',
         headers: { apikey: KEY, Authorization: 'Bearer ' + storedSession.access_token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
