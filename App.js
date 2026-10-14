@@ -3663,9 +3663,11 @@ export default function App() {
         const detail = await initialResponse.text().catch(() => '');
         throw new Error('Supabase non ha salvato la posizione (HTTP ' + initialResponse.status + '). ' + (detail || 'Controlla partner_locations e le policy RLS.'));
       }
-      // Avvia il task solo se non è già attivo: evita interruzioni inutili
-      // del servizio di localizzazione quando la schermata torna in primo piano.
-      if (!alreadyStarted) {
+      // Applica una sola volta le nuove opzioni anche ai task già esistenti;
+      // dopo, non interrompere più il tracciamento a ogni ritorno in primo piano.
+      const locationConfigApplied = await AsyncStorage.getItem('pokechiacchere_location_config_314');
+      const shouldRestart = !alreadyStarted || locationConfigApplied !== 'yes';
+      if (shouldRestart) {
         if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
           await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK).catch(() => {});
         }
@@ -3682,6 +3684,7 @@ export default function App() {
         deferredUpdatesDistance: 0,
         deferredUpdatesInterval: 0,
         });
+        await AsyncStorage.setItem('pokechiacchere_location_config_314', 'yes');
       }
     } catch (e) {
       Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
