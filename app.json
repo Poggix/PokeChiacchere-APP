@@ -14,7 +14,8 @@
           "locationWhenInUsePermission": "Consenti la posizione mentre usi PokeChiacchere.",
           "isIosBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "./plugins/withPokeLocationAppDelegate"
     ],
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
