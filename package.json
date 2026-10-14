@@ -23,7 +23,8 @@
     "expo-sharing": "~14.0.8",
     "@supabase/supabase-js": "^2.57.4",
     "expo-background-task": "~1.0.8",
-    "expo-task-manager": "~14.0.8"
+    "expo-task-manager": "~14.0.8",
+    "expo-location": "~19.0.8"
   },
   "private": true
 }
