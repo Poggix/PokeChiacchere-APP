@@ -35,3 +35,19 @@ create policy "Owner can insert partner notifications"
 -- Nessuna policy UPDATE/DELETE: i messaggi inviati non possono essere modificati o rimossi dall'app.
 grant select, insert on public.partner_notifications to authenticated;
 grant usage, select on sequence public.partner_notifications_id_seq to authenticated;
+
+-- Abilita gli eventi INSERT per Supabase Realtime, così i dispositivi attivi
+-- ricevono l'evento senza interrogare il database ogni 60 secondi.
+do $
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'partner_notifications'
+  ) then
+    alter publication supabase_realtime add table public.partner_notifications;
+  end if;
+end
+$;
