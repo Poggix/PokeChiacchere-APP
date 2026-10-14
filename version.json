@@ -1,8 +1,8 @@
 {
-  "version": "3.1.5",
-  "build": 6,
+  "version": "3.1.6",
+  "build": 7,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.1.5 build 6",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.1.5-build6/PokeChiacchere-v3.1.5-build6.ipa"
+  "notes": "Versione 3.1.6 build 7: ripristino nativo Core Location all'avvio iOS e dopo eventi di posizione.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.1.6-build7/PokeChiacchere-v3.1.6-build7.ipa"
 }
