@@ -71,16 +71,16 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     }
   }
 
-  func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+  public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
     if status == .authorizedAlways && defaults.bool(forKey: "pokeLocationEnabled") { startServices() }
   }
 
-  func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+  public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
     guard defaults.bool(forKey: "pokeLocationEnabled"), let loc = locations.last else { return }
     upload(loc, retried: false)
   }
 
-  func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+  public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     NSLog("PokeLocation CoreLocation error: %@", error.localizedDescription)
   }
 
