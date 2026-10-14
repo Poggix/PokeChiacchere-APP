@@ -96,6 +96,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
     guard defaults.bool(forKey: "pokeLocationEnabled"), region.identifier == recoveryRegionId else { return }
     NSLog("PokeLocation recovery region exited; requesting fresh location")
+    manager.stopMonitoring(for: region)
     startServices()
     manager.requestLocation()
   }
