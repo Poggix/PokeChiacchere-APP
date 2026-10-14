@@ -2,7 +2,7 @@
   "expo": {
     "name": "PokeChiacchere",
     "slug": "pokechiacchere",
-    "version": "2.6.6",
+    "version": "2.6.7",
     "icon": "./assets/icon.png",
     "plugins": [
       "expo-notifications"
