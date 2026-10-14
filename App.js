@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
+import * as Location from 'expo-location';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
@@ -37,6 +38,35 @@ Notifications.setNotificationHandler({
   }),
 });
 
+
+const PARTNER_LOCATION_TASK = 'pokechiacchere-partner-location';
+
+TaskManager.defineTask(PARTNER_LOCATION_TASK, async ({ data, error }) => {
+  if (error || !data?.locations?.length) return;
+  try {
+    const raw = await AsyncStorage.getItem('pokechiacchere_session');
+    const stored = raw ? JSON.parse(raw) : null;
+    if (!stored?.access_token || !stored?.user?.id) return;
+    const location = data.locations[data.locations.length - 1];
+    const response = await fetch('https://omovacbvfhmtjqrrgszx.supabase.co/rest/v1/partner_locations', {
+      method: 'POST',
+      headers: {
+        apikey: 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9',
+        Authorization: 'Bearer ' + stored.access_token,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({
+        user_id: stored.user.id,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        updated_at: new Date(location.timestamp || Date.now()).toISOString(),
+      }),
+    });
+    if (!response.ok) console.warn('Invio posizione non riuscito:', response.status);
+  } catch (e) { console.warn('Task posizione socio:', e?.message || e); }
+});
 
 const PARTNER_NOTIFICATION_BACKGROUND_TASK = 'pokechiacchere-partner-notifications';
 
@@ -3499,7 +3529,7 @@ export default function App() {
   async function viewPartnerLocation() {
     try {
       const response = await fetch(URL + '/rest/v1/partner_locations?select=user_id,latitude,longitude,accuracy,updated_at&user_id=neq.' + encodeURIComponent(OWNER_USER_ID) + '&order=updated_at.desc&limit=1', {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token },
+        headers: { apikey: KEY, Authorization: 'Bearer ' + token },
       });
       if (!response.ok) throw new Error('Supabase ha restituito ' + response.status);
       const rows = await response.json();
