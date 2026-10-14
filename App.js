@@ -43,19 +43,48 @@ Notifications.setNotificationHandler({
 const PARTNER_LOCATION_TASK = 'pokechiacchere-partner-location';
 
 TaskManager.defineTask(PARTNER_LOCATION_TASK, async ({ data, error }) => {
-  if (error || !data?.locations?.length) return;
+  if (error || !data?.locations?.length) {
+    if (error) console.warn('Task posizione socio:', error.message || error);
+    return;
+  }
   try {
     const raw = await AsyncStorage.getItem('pokechiacchere_session');
-    const stored = raw ? JSON.parse(raw) : null;
-    if (!stored?.access_token || !stored?.user?.id) return;
+    let stored = raw ? JSON.parse(raw) : null;
+    if (!stored?.access_token || !stored?.user?.id || stored.user.id === '01bf546e-bf28-46ac-8370-b4fe30d8a8fd') return;
+
+    // La sessione salvata può scadere mentre l'app è in background.
+    // Rinnova il token quando sta per scadere, senza dipendere dall'apertura dell'interfaccia.
+    const expiresAt = Number(stored.expires_at || 0);
+    if (stored.refresh_token && expiresAt && expiresAt * 1000 < Date.now() + 120000) {
+      try {
+        const refreshResponse = await fetch('https://omovacbvfhmtjqrrgszx.supabase.co/auth/v1/token?grant_type=refresh_token', {
+          method: 'POST',
+          headers: {
+            apikey: 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refresh_token: stored.refresh_token }),
+        });
+        const renewed = await refreshResponse.json();
+        if (refreshResponse.ok && renewed.access_token) {
+          stored = renewed;
+          await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(renewed));
+        } else {
+          console.warn('Rinnovo sessione posizione non riuscito:', refreshResponse.status);
+        }
+      } catch (refreshError) {
+        console.warn('Errore rinnovo sessione posizione:', refreshError?.message || refreshError);
+      }
+    }
+
     const location = data.locations[data.locations.length - 1];
-    const response = await fetch('https://omovacbvfhmtjqrrgszx.supabase.co/rest/v1/partner_locations?on_conflict=user_id', {
+    const sendLocation = (accessToken) => fetch('https://omovacbvfhmtjqrrgszx.supabase.co/rest/v1/partner_locations?on_conflict=user_id', {
       method: 'POST',
       headers: {
         apikey: 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9',
-        Authorization: 'Bearer ' + stored.access_token,
+        Authorization: 'Bearer ' + accessToken,
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
       },
       body: JSON.stringify({
         user_id: stored.user.id,
@@ -65,7 +94,25 @@ TaskManager.defineTask(PARTNER_LOCATION_TASK, async ({ data, error }) => {
         updated_at: new Date(location.timestamp || Date.now()).toISOString(),
       }),
     });
-    if (!response.ok) console.warn('Invio posizione non riuscito:', response.status);
+
+    let response = await sendLocation(stored.access_token);
+    if (response.status === 401 && stored.refresh_token) {
+      const refreshResponse = await fetch('https://omovacbvfhmtjqrrgszx.supabase.co/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: {
+          apikey: 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: stored.refresh_token }),
+      });
+      const renewed = await refreshResponse.json();
+      if (refreshResponse.ok && renewed.access_token) {
+        stored = renewed;
+        await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(renewed));
+        response = await sendLocation(stored.access_token);
+      }
+    }
+    if (!response.ok) console.warn('Invio posizione non riuscito:', response.status, await response.text().catch(() => ''));
   } catch (e) { console.warn('Task posizione socio:', e?.message || e); }
 });
 
@@ -3611,15 +3658,15 @@ export default function App() {
         await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
       }
       await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
-        accuracy: Location.Accuracy.Balanced,
-        distanceInterval: 100,
-        timeInterval: 60000,
-        pausesUpdatesAutomatically: false,
-        showsBackgroundLocationIndicator: false,
+        // GPS più preciso per la mappa condivisa; iOS decide comunque la frequenza effettiva.
+        accuracy: Location.Accuracy.High,
+        activityType: Location.ActivityType.Fitness,
         distanceInterval: 10,
-        timeInterval: 15000,
-        deferredUpdatesDistance: 10,
-        deferredUpdatesInterval: 15000,
+        timeInterval: 10000,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        deferredUpdatesDistance: 0,
+        deferredUpdatesInterval: 0,
       });
     } catch (e) {
       Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
