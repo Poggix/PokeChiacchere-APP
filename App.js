@@ -3189,6 +3189,11 @@ export default function App() {
         UTI: 'com.apple.itunes.ipa',
         dialogTitle: 'Condividi la IPA con SideStore',
       });
+      // Quando il menu di condivisione viene chiuso, rimuove la IPA temporanea
+      // per evitare che resti nei Documenti dell'app e occupi spazio.
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+      setDownloadedIpa(null);
+      Alert.alert('IPA temporanea eliminata', 'Il file IPA condiviso è stato rimosso dalla memoria dell’app.');
     } catch (error) {
       Alert.alert('Condivisione non riuscita', error?.message || 'Impossibile condividere la IPA.');
     }
@@ -3256,6 +3261,14 @@ export default function App() {
                   const baseDirectory = FileSystem.documentDirectory;
                   if (!baseDirectory) {
                     throw new Error('La cartella documenti temporanea non è disponibile su questo dispositivo.');
+                  }
+                  // Elimina eventuali IPA di aggiornamenti precedenti rimaste nella cartella.
+                  // Non tocca gli altri documenti dell'app.
+                  const savedFiles = await FileSystem.readDirectoryAsync(baseDirectory);
+                  for (const savedFile of savedFiles) {
+                    if (/^PokeChiacchere-v.*-build.*\.ipa$/i.test(savedFile) && savedFile !== fileName) {
+                      await FileSystem.deleteAsync(baseDirectory + savedFile, { idempotent: true });
+                    }
                   }
                   const fileUri = baseDirectory + fileName;
                   const existing = await FileSystem.getInfoAsync(fileUri);
