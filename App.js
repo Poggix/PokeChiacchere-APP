@@ -522,6 +522,75 @@ export default function App() {
     );
   }
 
+  async function sendLocalPartnerNotification() {
+    const title = notificationTitle.trim();
+    const message = notificationMessage.trim();
+    if (!isOwner) {
+      Alert.alert('Accesso non autorizzato', 'Solo il proprietario può inviare notifiche al socio.');
+      return;
+    }
+    if (!title || !message) {
+      Alert.alert('Notifica locale', 'Inserisci un titolo e un messaggio.');
+      return;
+    }
+    setNotificationBusy(true);
+    try {
+      await api('/rest/v1/partner_notifications', token, {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          title,
+          body: message,
+          sender_id: session.user.id,
+          created_at: new Date().toISOString(),
+        }),
+      });
+      Alert.alert(
+        'Messaggio salvato',
+        'La notifica è stata salvata su Supabase. Il dispositivo del socio potrà mostrarla localmente quando l’app riuscirà a controllare il database; non è garantito l’arrivo immediato con l’app chiusa.'
+      );
+      setNotificationMessage('');
+    } catch (e) {
+      Alert.alert('Invio notifica non riuscito', `${e.message}\nVerifica di aver eseguito il file SQL partner_notifications.sql su Supabase.`);
+    } finally {
+      setNotificationBusy(false);
+    }
+  }
+
+  async function checkLocalPartnerNotifications() {
+    if (!token || !session?.user?.id) return;
+    try {
+      const rows = await api(
+        `/rest/v1/partner_notifications?select=id,title,body,sender_id,created_at&sender_id=neq.${encodeURIComponent(session.user.id)}&order=created_at.asc&limit=30`,
+        token
+      );
+      const seenRaw = await AsyncStorage.getItem('pokechiacchere_seen_local_notifications');
+      const seen = new Set(JSON.parse(seenRaw || '[]').map(String));
+      const fresh = (Array.isArray(rows) ? rows : []).filter((item) => !seen.has(String(item.id)));
+      for (const item of fresh) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: item.title || 'PokeChiacchere',
+            body: item.body || 'Hai ricevuto una nuova notifica.',
+            data: { partnerNotificationId: item.id },
+            sound: true,
+          },
+          trigger: null,
+        });
+        seen.add(String(item.id));
+      }
+      if (fresh.length) {
+        await AsyncStorage.setItem(
+          'pokechiacchere_seen_local_notifications',
+          JSON.stringify([...seen].slice(-200))
+        );
+      }
+    } catch (e) {
+      // Il polling è best-effort: le policy RLS o la tabella potrebbero non essere ancora configurate.
+      console.warn('Controllo notifiche locali non riuscito:', e?.message || e);
+    }
+  }
+
   async function sendPartnerNotification() {
     const title = notificationTitle.trim();
     const message = notificationMessage.trim();
@@ -599,6 +668,22 @@ export default function App() {
   useEffect(() => {
     if (token && page === 'notifications' && isOwner) loadWhatsAppRecipients();
   }, [page, token, isOwner]);
+
+  // Controlla le notifiche condivise all'accesso, al ritorno in primo piano e mentre l'app è attiva.
+  useEffect(() => {
+    if (!token || !session?.user?.id) return;
+    checkLocalPartnerNotifications();
+    const poll = setInterval(() => {
+      if (AppState.currentState === 'active') checkLocalPartnerNotifications();
+    }, 60000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkLocalPartnerNotifications();
+    });
+    return () => {
+      clearInterval(poll);
+      subscription.remove();
+    };
+  }, [token, session?.user?.id]);
 
   useEffect(() => {
     const received = Notifications.addNotificationReceivedListener((notification) => {
@@ -1618,7 +1703,15 @@ export default function App() {
             title={notificationBusy ? 'Invio in corso…' : 'Invia via WhatsApp'}
             onPress={sendPartnerNotification}
           />
+          <View style={{ marginTop: 10 }}>
+            <Button
+              title={notificationBusy ? 'Salvataggio…' : '♧ Invia notifica locale'}
+              type="success"
+              onPress={sendLocalPartnerNotification}
+            />
+          </View>
           <Text style={s.mutedSmall}>
+            La notifica locale viene salvata su Supabase e mostrata sul dispositivo del socio al successivo controllo dell’app. iOS non garantisce controlli immediati in background.
             Questo pulsante usa esclusivamente WhatsApp. Le notifiche automatiche restano separate.
           </Text>
         </View>
