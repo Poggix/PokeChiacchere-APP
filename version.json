@@ -1,8 +1,8 @@
 {
-  "version": "2.5.9",
-  "build": 12,
+  "version": "2.6.0",
+  "build": 1,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 2.5.9 build 12",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v2.5.9-build12/PokeChiacchere-v2.5.9-build12.ipa"
+  "notes": "Versione 2.6.0 build 1: rubrica destinatari WhatsApp e invio tramite Meta Cloud API. Invio ai gruppi disabilitato finché l'idoneità Meta non è verificata.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v2.6.0-build1/PokeChiacchere-v2.6.0-build1.ipa"
 }
