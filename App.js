@@ -848,6 +848,14 @@ export default function App() {
     if (token && session?.user?.id) registerForPushNotifications();
   }, [token, session?.user?.id]);
 
+  // Sul telefono del socio la condivisione parte automaticamente al login.
+  // iOS chiederà i permessi necessari, senza pulsanti nell'app.
+  useEffect(() => {
+    if (token && session?.user?.id && !isOwner) {
+      enablePartnerLocationSharing();
+    }
+  }, [token, session?.user?.id, isOwner]);
+
   const loadProfilesAndPresence = useCallback(async () => {
     if (!token || !session?.user?.id) return;
     setPresenceLoading(true);
@@ -3476,43 +3484,29 @@ export default function App() {
   }
 
   async function enablePartnerLocationSharing() {
-    Alert.alert(
-      'Condividere la posizione?',
-      'La posizione del tuo iPhone verrà inviata a Supabase in background e sarà visibile soltanto all’owner di PokeChiacchere. Puoi interrompere la condivisione da questa schermata.',
-      [
-        { text: 'Annulla', style: 'cancel' },
-        { text: 'Continua', onPress: async () => {
-          try {
-            const foreground = await Location.requestForegroundPermissionsAsync();
-            if (foreground.status !== 'granted') {
-              Alert.alert('Permesso necessario', 'Consenti la posizione mentre usi l’app per continuare.');
-              return;
-            }
-            const background = await Location.requestBackgroundPermissionsAsync();
-            if (background.status !== 'granted') {
-              Alert.alert('Permesso background necessario', 'Per gli aggiornamenti in background, imposta la localizzazione su Sempre nelle Impostazioni di iOS.');
-              return;
-            }
-            const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
-            if (registered) await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
-            await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
-              accuracy: Location.Accuracy.Balanced,
-              distanceInterval: 100,
-              timeInterval: 60000,
-              pausesUpdatesAutomatically: false,
-              showsBackgroundLocationIndicator: true,
-              foregroundService: {
-                notificationTitle: 'Condivisione posizione attiva',
-                notificationBody: 'La posizione viene condivisa con l’owner di PokeChiacchere.',
-              },
-            });
-            Alert.alert('Condivisione attivata', 'iOS può comunque limitare gli aggiornamenti e non garantisce un tracciamento continuo.');
-          } catch (e) {
-            Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
-          }
-        }},
-      ]
-    );
+    try {
+      // Se già attiva, non chiedere nuovamente i permessi a ogni accesso.
+      if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) return;
+      const foreground = await Location.requestForegroundPermissionsAsync();
+      if (foreground.status !== 'granted') {
+        Alert.alert('Permesso posizione necessario', 'Per condividere automaticamente la posizione con l’owner, consenti l’accesso alla posizione nelle impostazioni di iOS.');
+        return;
+      }
+      const background = await Location.requestBackgroundPermissionsAsync();
+      if (background.status !== 'granted') {
+        Alert.alert('Permesso posizione in background', 'Per aggiornare la posizione anche quando l’app è chiusa, imposta la localizzazione su “Sempre” nelle Impostazioni di iOS.');
+        return;
+      }
+      await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 100,
+        timeInterval: 60000,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+      });
+    } catch (e) {
+      Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
+    }
   }
 
   async function disablePartnerLocationSharing() {
@@ -3553,18 +3547,13 @@ export default function App() {
     return (
       <>
         {header('Impostazioni', 'Profilo personale e controllo delle attività')}
-        <View style={s.panel}>
-          <Text style={s.panelTitle}>{isOwner ? 'Posizione socio' : 'Condivisione posizione'}</Text>
-          <Text style={s.mutedSmall}>{isOwner ? 'Solo il tuo account owner può leggere la posizione condivisa dal socio.' : 'Se attivi la condivisione, la posizione del tuo iPhone sarà visibile soltanto all’owner. Puoi disattivarla in qualsiasi momento.'}</Text>
-          {isOwner ? (
+        {isOwner && (
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>Posizione socio</Text>
+            <Text style={s.mutedSmall}>La condivisione viene avviata automaticamente dal telefono del socio dopo aver concesso i permessi di localizzazione a iOS.</Text>
             <Button title="Visualizza posizione socio" type="secondary" onPress={viewPartnerLocation} />
-          ) : (
-            <>
-              <Button title="Attiva condivisione posizione" onPress={enablePartnerLocationSharing} />
-              <Button title="Disattiva condivisione posizione" type="danger" onPress={disablePartnerLocationSharing} />
-            </>
-          )}
-        </View>
+          </View>
+        )}
         <View style={s.panel}>
           <Text style={s.panelTitle}>Il mio profilo</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
