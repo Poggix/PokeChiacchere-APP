@@ -14,8 +14,8 @@ public class PokeLocationModule: Module {
   }
 }
 
-final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
-  static let shared = PokeLocationManager()
+public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
+  public static let shared = PokeLocationManager()
   private let manager = CLLocationManager()
   private let defaults = UserDefaults.standard
   private let baseURL = "https://omovacbvfhmtjqrrgszx.supabase.co"
@@ -30,6 +30,11 @@ final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
     if defaults.bool(forKey: "pokeLocationEnabled") { startServices() }
+  }
+
+  public func restoreIfEnabled() {
+    guard defaults.bool(forKey: "pokeLocationEnabled") else { return }
+    startServices()
   }
 
   func configure(userId: String, accessToken: String, refreshToken: String, expiresAt: Double) {
