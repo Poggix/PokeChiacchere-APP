@@ -21,7 +21,9 @@
     "expo-image-picker": "~17.0.10",
     "expo-file-system": "~19.0.21",
     "expo-sharing": "~14.0.8",
-    "@supabase/supabase-js": "^2.57.4"
+    "@supabase/supabase-js": "^2.57.4",
+    "expo-background-task": "~1.0.8",
+    "expo-task-manager": "~14.0.8"
   },
   "private": true
 }
