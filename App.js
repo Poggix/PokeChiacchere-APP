@@ -323,6 +323,7 @@ export default function App() {
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPassword, setAccountPassword] = useState('');
   const [accountBusy, setAccountBusy] = useState(false);
+  const [showAccountLogin, setShowAccountLogin] = useState(false);
 
   const [records, setRecords] = useState({
     sales: [],
@@ -1069,6 +1070,7 @@ export default function App() {
         );
       }
       setSession(data);
+      setShowAccountLogin(false);
       await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(data));
       const rawAccounts = await AsyncStorage.getItem('pokechiacchere_accounts');
       let accounts = [];
@@ -3572,9 +3574,21 @@ export default function App() {
         accuracy: Location.Accuracy.Balanced,
         distanceInterval: 100,
         timeInterval: 60000,
-        pausesUpdatesAutomatically: false,
-        showsBackgroundLocationIndicator: true,
+        pausesUpdatesAutomatically: true,
+        showsBackgroundLocationIndicator: false,
       });
+      // Invia subito una prima posizione: non aspettare il prossimo evento del task in background.
+      const initialPosition = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const storedRaw = await AsyncStorage.getItem('pokechiacchere_session');
+      const storedSession = storedRaw ? JSON.parse(storedRaw) : null;
+      if (storedSession?.access_token && storedSession?.user?.id) {
+        const initialResponse = await fetch(URL + '/rest/v1/partner_locations?on_conflict=user_id', {
+          method: 'POST',
+          headers: { apikey: KEY, Authorization: 'Bearer ' + storedSession.access_token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+          body: JSON.stringify({ user_id: storedSession.user.id, latitude: initialPosition.coords.latitude, longitude: initialPosition.coords.longitude, accuracy: initialPosition.coords.accuracy, updated_at: new Date(initialPosition.timestamp || Date.now()).toISOString() }),
+        });
+        if (!initialResponse.ok) throw new Error('Invio posizione iniziale non riuscito (HTTP ' + initialResponse.status + '). Verifica la tabella partner_locations e le policy RLS.');
+      }
     } catch (e) {
       Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
     }
@@ -3703,13 +3717,15 @@ export default function App() {
               <Text style={{ color: C.white, fontWeight: '800', fontSize: 13 }}>{account.user.email || 'Account senza email'}</Text>
               <Text style={s.mutedSmall}>{account.user.id === session?.user?.id ? 'Account attualmente attivo' : 'Account salvato'}</Text>
               {account.user.id !== session?.user?.id && <Button title="Passa a questo account" type="secondary" onPress={() => switchSavedAccount(account)} />}
-              <Button title="Rimuovi account salvato" type="danger" onPress={() => Alert.alert('Rimuovere account?', 'Verrà rimosso da questo dispositivo, senza eliminare l’account Supabase.', [{ text: 'Annulla', style: 'cancel' }, { text: 'Rimuovi', style: 'destructive', onPress: () => removeSavedAccount(account) }])} />
+              {account.user.id !== session?.user?.id && <Button title="Rimuovi account salvato" type="danger" onPress={() => Alert.alert('Rimuovere account?', 'Verrà rimosso da questo dispositivo, senza eliminare l’account Supabase.', [{ text: 'Annulla', style: 'cancel' }, { text: 'Rimuovi', style: 'destructive', onPress: () => removeSavedAccount(account) }])} />}
             </View>
           ))}
-          <Text style={[s.sectionTitle, { marginTop: 16 }]}>Aggiungi un altro account</Text>
-          <Field label="Email Supabase" value={accountEmail} onChangeText={setAccountEmail} placeholder="email@esempio.it" />
-          <Field label="Password" value={accountPassword} onChangeText={setAccountPassword} placeholder="Password account" />
-          <Button title={accountBusy ? 'Accesso in corso…' : 'Aggiungi e passa all’account'} onPress={addAnotherAccount} />
+          <TouchableOpacity
+            onPress={() => { setEmail(''); setPassword(''); setShowAccountLogin(true); }}
+            style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 11, borderWidth: 1, borderColor: C.cyan, backgroundColor: C.panel2 }}>
+            <Text style={{ color: C.cyan, fontSize: 20, fontWeight: '900' }}>＋</Text>
+            <Text style={{ color: C.cyan, fontSize: 13, fontWeight: '900' }}>Aggiungi account</Text>
+          </TouchableOpacity>
         </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Aggiornamenti app</Text>
@@ -4008,7 +4024,7 @@ export default function App() {
     );
   }
 
-  if (!session) {
+  if (!session || showAccountLogin) {
     return (
       <SafeAreaView style={s.safe}>
         <StatusBar barStyle="light-content" backgroundColor={C.bg} />
@@ -4017,7 +4033,7 @@ export default function App() {
             POKE<Text style={{ color: C.red }}>CHIACCHIERE</Text>
           </Text>
           <Text style={s.pageTitle}>Bentornato.</Text>
-          <Text style={s.subtitle}>Gestionale condiviso</Text>
+          <Text style={s.subtitle}>{showAccountLogin ? 'Aggiungi un account senza disconnettere quello attuale' : 'Gestionale condiviso'}</Text>
           <View style={s.panel}>
             <Field
               label="Email Supabase"
@@ -4030,9 +4046,10 @@ export default function App() {
               onChangeText={setPassword}
             />
             <Button
-              title={loading ? 'Accesso in corso…' : 'Accedi'}
+              title={loading ? 'Accesso in corso…' : showAccountLogin ? 'Aggiungi e accedi' : 'Accedi'}
               onPress={signIn}
             />
+            {showAccountLogin && <Button title="Annulla e torna alle impostazioni" type="secondary" onPress={() => { setShowAccountLogin(false); setEmail(''); setPassword(''); }} />}
           </View>
           {loading && <ActivityIndicator color={C.cyan} />}
         </View>
