@@ -1,8 +1,8 @@
 {
-  "version": "2.6.6",
+  "version": "2.6.7",
   "build": 1,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 2.6.6 build 1",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v2.6.6-build1/PokeChiacchere-v2.6.6-build1.ipa"
+  "notes": "Versione 2.6.7 build 1: corretta ricerca IPA in Documenti/Cache e formattazione della diagnostica; pulizia delle vecchie IPA durante l'aggiornamento.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v2.6.7-build1/PokeChiacchere-v2.6.7-build1.ipa"
 }
