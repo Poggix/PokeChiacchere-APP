@@ -3260,38 +3260,49 @@ export default function App() {
 
   async function openDownloadedIpaFolder() {
     try {
-      const directory = FileSystem.documentDirectory;
-      if (!directory) throw new Error('Cartella documenti non disponibile.');
-      const names = await FileSystem.readDirectoryAsync(directory);
+      const directories = [
+        { uri: FileSystem.documentDirectory, label: 'Documenti' },
+        { uri: FileSystem.cacheDirectory, label: 'Cache' },
+      ].filter((item) => item.uri);
       const ipaFiles = [];
-      for (const name of names.filter((item) => /\\.ipa$/i.test(item))) {
-        const uri = directory + name;
-        const info = await FileSystem.getInfoAsync(uri);
-        if (info.exists) ipaFiles.push({ name, uri, size: info.size || 0 });
+      for (const directory of directories) {
+        const names = await FileSystem.readDirectoryAsync(directory.uri);
+        for (const name of names.filter((item) => /\\.ipa$/i.test(item))) {
+          const uri = directory.uri.endsWith('/') ? directory.uri + name : directory.uri + '/' + name;
+          const info = await FileSystem.getInfoAsync(uri);
+          if (info.exists && !info.isDirectory) {
+            ipaFiles.push({ name, uri, size: info.size || 0, area: directory.label });
+          }
+        }
       }
       if (!ipaFiles.length) {
-        Alert.alert('Cartella IPA scaricate', 'Non ci sono file IPA nella cartella documenti dell’app.');
+        Alert.alert('IPA scaricate', 'Non sono stati trovati file IPA né in Documenti né in Cache.');
         return;
       }
-      const totalMb = ipaFiles.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024);
-      const summary = ipaFiles.map((file) => '• ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(1) + ' MB)').join('\\n');
+      const totalBytes = ipaFiles.reduce((sum, file) => sum + file.size, 0);
+      const totalMb = totalBytes / (1024 * 1024);
+      const summary = ipaFiles.map((file) => '• [' + file.area + '] ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)').join('\\n');
       Alert.alert(
         'IPA scaricate (' + ipaFiles.length + ')',
-        summary + '\\n\\nSpazio totale: ' + totalMb.toFixed(1) + ' MB',
+        summary + '\\n\\nSpazio recuperabile: ' + totalMb.toFixed(2) + ' MB',
         [
-          { text: 'Chiudi', style: 'cancel' },
+          { text: 'Annulla', style: 'cancel' },
           {
-            text: 'Elimina tutte le IPA',
+            text: 'Elimina IPA',
             style: 'destructive',
             onPress: async () => {
               try {
+                let removed = 0;
+                let freed = 0;
                 for (const file of ipaFiles) {
                   await FileSystem.deleteAsync(file.uri, { idempotent: true });
+                  removed += 1;
+                  freed += file.size;
                 }
                 setDownloadedIpa((current) => current && ipaFiles.some((file) => file.uri === current.uri) ? null : current);
-                Alert.alert('Pulizia completata', 'Eliminate ' + ipaFiles.length + ' IPA per liberare circa ' + totalMb.toFixed(1) + ' MB.');
+                Alert.alert('Pulizia completata', 'Eliminate ' + removed + ' IPA. Spazio liberato: circa ' + (freed / (1024 * 1024)).toFixed(2) + ' MB.');
               } catch (error) {
-                Alert.alert('Pulizia incompleta', error?.message || 'Non è stato possibile eliminare tutti i file.');
+                Alert.alert('Pulizia incompleta', error?.message || 'Non è stato possibile eliminare tutti i file IPA.');
               }
             },
           },
@@ -3365,12 +3376,15 @@ export default function App() {
                   if (!baseDirectory) {
                     throw new Error('La cartella documenti temporanea non è disponibile su questo dispositivo.');
                   }
-                  // Elimina eventuali IPA di aggiornamenti precedenti rimaste nella cartella.
-                  // Non tocca gli altri documenti dell'app.
-                  const savedFiles = await FileSystem.readDirectoryAsync(baseDirectory);
-                  for (const savedFile of savedFiles) {
-                    if (/^PokeChiacchere-v.*-build.*\.ipa$/i.test(savedFile) && savedFile !== fileName) {
-                      await FileSystem.deleteAsync(baseDirectory + savedFile, { idempotent: true });
+                  // Elimina soltanto le vecchie IPA di aggiornamento da Documenti e Cache.
+                  // Non elimina immagini, database o altri dati dell'app.
+                  for (const folder of [FileSystem.documentDirectory, FileSystem.cacheDirectory].filter(Boolean)) {
+                    const savedFiles = await FileSystem.readDirectoryAsync(folder);
+                    for (const savedFile of savedFiles) {
+                      if (/^PokeChiacchere-v.*-build.*\\.ipa$/i.test(savedFile) && savedFile !== fileName) {
+                        const oldUri = folder.endsWith('/') ? folder + savedFile : folder + '/' + savedFile;
+                        await FileSystem.deleteAsync(oldUri, { idempotent: true });
+                      }
                     }
                   }
                   const fileUri = baseDirectory + fileName;
