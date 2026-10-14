@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
+import { createClient } from '@supabase/supabase-js';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import {
@@ -36,6 +37,9 @@ Notifications.setNotificationHandler({
 
 const URL = 'https://omovacbvfhmtjqrrgszx.supabase.co';
 const KEY = 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9';
+const realtimeClient = createClient(URL, KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});
 const NOTIFICATION_FUNCTION_URL = `${URL}/functions/v1/rapid-processor`;
 const WHATSAPP_FUNCTION_URL = `${URL}/functions/v1/whatsapp-notifications`;
 // Sostituisci questo valore con l'UUID del tuo utente in Supabase > Authentication > Users.
@@ -669,21 +673,57 @@ export default function App() {
     if (token && page === 'notifications' && isOwner) loadWhatsAppRecipients();
   }, [page, token, isOwner]);
 
-  // Controlla le notifiche condivise all'accesso, al ritorno in primo piano e mentre l'app è attiva.
+  // Controlla all'accesso/al ritorno in primo piano e usa Supabase Realtime
+  // per reagire subito a una nuova notifica, senza polling periodico.
   useEffect(() => {
     if (!token || !session?.user?.id) return;
+    let cancelled = false;
+    let channel = null;
+
     checkLocalPartnerNotifications();
-    const poll = setInterval(() => {
-      if (AppState.currentState === 'active') checkLocalPartnerNotifications();
-    }, 60000);
+
+    const connectRealtime = async () => {
+      try {
+        await realtimeClient.realtime.setAuth(token);
+        if (cancelled) return;
+        channel = realtimeClient
+          .channel(`partner-notifications-${session.user.id}`)
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'partner_notifications' },
+            (payload) => {
+              const notification = payload?.new;
+              if (!notification || notification.sender_id === session.user.id) return;
+              // Mostra la notifica locale e aggiorna subito i dati condivisi dell'app.
+              checkLocalPartnerNotifications();
+              loadData();
+              loadProfilesAndPresence();
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              console.warn('Connessione Supabase Realtime non riuscita:', status);
+            }
+          });
+      } catch (e) {
+        console.warn('Avvio Supabase Realtime non riuscito:', e?.message || e);
+      }
+    };
+    connectRealtime();
+
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') checkLocalPartnerNotifications();
+      if (state === 'active') {
+        checkLocalPartnerNotifications();
+        loadData();
+        loadProfilesAndPresence();
+      }
     });
     return () => {
-      clearInterval(poll);
+      cancelled = true;
       subscription.remove();
+      if (channel) realtimeClient.removeChannel(channel);
     };
-  }, [token, session?.user?.id]);
+  }, [token, session?.user?.id, loadData, loadProfilesAndPresence]);
 
   useEffect(() => {
     const received = Notifications.addNotificationReceivedListener((notification) => {
