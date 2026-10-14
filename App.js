@@ -3227,7 +3227,7 @@ export default function App() {
             } else {
               const size = info.size || 0;
               total += size;
-              files.push({ name, uri: childUri, size, kind: /\\.ipa$/i.test(name) ? 'IPA' : 'File' });
+              files.push({ name, uri: childUri, size, kind: /\.ipa$/i.test(name) ? 'IPA' : 'File' });
             }
           } catch (_) {}
         }
@@ -3252,7 +3252,7 @@ export default function App() {
         '',
         'Nota: iOS può conteggiare anche database, storage interno e dati non esposti da queste cartelle.'
       ];
-      Alert.alert('Diagnostica memoria', lines.join('\\n').slice(0, 3800), [{ text: 'OK' }]);
+      Alert.alert('Diagnostica memoria', lines.join('\n').slice(0, 3800), [{ text: 'OK' }]);
     } catch (error) {
       Alert.alert('Diagnostica non disponibile', error?.message || 'Impossibile analizzare la memoria.');
     }
@@ -3267,7 +3267,7 @@ export default function App() {
       const ipaFiles = [];
       for (const directory of directories) {
         const names = await FileSystem.readDirectoryAsync(directory.uri);
-        for (const name of names.filter((item) => /\\.ipa$/i.test(item))) {
+        for (const name of names.filter((item) => /\.ipa$/i.test(item))) {
           const uri = directory.uri.endsWith('/') ? directory.uri + name : directory.uri + '/' + name;
           const info = await FileSystem.getInfoAsync(uri);
           if (info.exists && !info.isDirectory) {
@@ -3281,10 +3281,10 @@ export default function App() {
       }
       const totalBytes = ipaFiles.reduce((sum, file) => sum + file.size, 0);
       const totalMb = totalBytes / (1024 * 1024);
-      const summary = ipaFiles.map((file) => '• [' + file.area + '] ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)').join('\\n');
+      const summary = ipaFiles.map((file) => '• [' + file.area + '] ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)').join('\n');
       Alert.alert(
         'IPA scaricate (' + ipaFiles.length + ')',
-        summary + '\\n\\nSpazio recuperabile: ' + totalMb.toFixed(2) + ' MB',
+        summary + '\n\nSpazio recuperabile: ' + totalMb.toFixed(2) + ' MB',
         [
           { text: 'Annulla', style: 'cancel' },
           {
@@ -3381,7 +3381,7 @@ export default function App() {
                   for (const folder of [FileSystem.documentDirectory, FileSystem.cacheDirectory].filter(Boolean)) {
                     const savedFiles = await FileSystem.readDirectoryAsync(folder);
                     for (const savedFile of savedFiles) {
-                      if (/^PokeChiacchere-v.*-build.*\\.ipa$/i.test(savedFile) && savedFile !== fileName) {
+                      if (/^PokeChiacchere-v.*-build.*\.ipa$/i.test(savedFile) && savedFile !== fileName) {
                         const oldUri = folder.endsWith('/') ? folder + savedFile : folder + '/' + savedFile;
                         await FileSystem.deleteAsync(oldUri, { idempotent: true });
                       }
