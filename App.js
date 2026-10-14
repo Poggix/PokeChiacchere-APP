@@ -3628,15 +3628,12 @@ export default function App() {
 
   async function enablePartnerLocationSharing() {
     try {
-      // Non basta che il task risulti registrato: dopo sospensioni o riprese
-      // controlla anche che gli aggiornamenti di posizione siano effettivamente avviati.
+      // Non interrompere un tracciamento già attivo quando l'app torna in primo piano:
+      // stop/start ripetuti possono creare finestre senza aggiornamenti in background.
       const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
-      if (registered) {
-        // Quando l'app torna in primo piano, acquisisci e salva un nuovo fix:
-        // il fatto che il task risulti avviato non garantisce che l'ultima
-        // posizione salvata sia recente o precisa.
-        await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK).catch(() => {});
-      }
+      const alreadyStarted = registered
+        ? await Location.hasStartedLocationUpdatesAsync(PARTNER_LOCATION_TASK).catch(() => false)
+        : false;
       const foreground = await Location.requestForegroundPermissionsAsync();
       if (foreground.status !== 'granted') {
         Alert.alert('Permesso posizione necessario', 'Per condividere automaticamente la posizione con l’owner, consenti l’accesso alla posizione nelle impostazioni di iOS.');
@@ -3666,22 +3663,26 @@ export default function App() {
         const detail = await initialResponse.text().catch(() => '');
         throw new Error('Supabase non ha salvato la posizione (HTTP ' + initialResponse.status + '). ' + (detail || 'Controlla partner_locations e le policy RLS.'));
       }
-      // Solo dopo aver salvato correttamente il primo punto avvia il tracciamento.
-      // Riavvia il task per evitare configurazioni residue di una sessione precedente.
-      if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
-        await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
-      }
-      await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
+      // Avvia il task solo se non è già attivo: evita interruzioni inutili
+      // del servizio di localizzazione quando la schermata torna in primo piano.
+      if (!alreadyStarted) {
+        if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
+          await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK).catch(() => {});
+        }
+        await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
         // GPS più preciso per la mappa condivisa; iOS decide comunque la frequenza effettiva.
         accuracy: Location.Accuracy.High,
         activityType: Location.ActivityType.Fitness,
         distanceInterval: 10,
         timeInterval: 10000,
         pausesUpdatesAutomatically: false,
-        showsBackgroundLocationIndicator: true,
+        // Evita l'indicatore di localizzazione in background quando iOS lo consente.
+        // iOS può comunque mostrare indicatori di sistema in alcune condizioni.
+        showsBackgroundLocationIndicator: false,
         deferredUpdatesDistance: 0,
         deferredUpdatesInterval: 0,
-      });
+        });
+      }
     } catch (e) {
       Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
     }
