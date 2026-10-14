@@ -21,6 +21,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   private let baseURL = "https://omovacbvfhmtjqrrgszx.supabase.co"
   private let apiKey = "sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9"
   private let ownerId = "01bf546e-bf28-46ac-8370-b4fe30d8a8fd"
+  private let recoveryRegionId = "pokechiacchere-location-recovery"
 
   private override init() {
     super.init()
@@ -60,12 +61,21 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     if CLLocationManager.significantLocationChangeMonitoringAvailable() {
       manager.startMonitoringSignificantLocationChanges()
     }
+    // Region monitoring is the native recovery path to test when iOS has
+    // terminated the process. It is event-driven, not continuous GPS.
+    if manager.monitoredRegions.contains(where: { $0.identifier == recoveryRegionId }) == false,
+       let last = manager.location {
+      monitorRecoveryRegion(around: last)
+    }
   }
 
   func stop() {
     defaults.set(false, forKey: "pokeLocationEnabled")
     manager.stopUpdatingLocation()
     manager.stopMonitoringSignificantLocationChanges()
+    for region in manager.monitoredRegions where region.identifier == recoveryRegionId {
+      manager.stopMonitoring(for: region)
+    }
     for key in ["pokeLocationUserId", "pokeLocationAccessToken", "pokeLocationRefreshToken", "pokeLocationExpiresAt"] {
       defaults.removeObject(forKey: key)
     }
@@ -78,10 +88,39 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
     guard defaults.bool(forKey: "pokeLocationEnabled"), let loc = locations.last else { return }
     upload(loc, retried: false)
+    if !manager.monitoredRegions.contains(where: { $0.identifier == recoveryRegionId }) {
+      monitorRecoveryRegion(around: loc)
+    }
+  }
+
+  public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+    guard defaults.bool(forKey: "pokeLocationEnabled"), region.identifier == recoveryRegionId else { return }
+    NSLog("PokeLocation recovery region exited; requesting fresh location")
+    startServices()
+    manager.requestLocation()
   }
 
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     NSLog("PokeLocation CoreLocation error: %@", error.localizedDescription)
+  }
+
+  private func monitorRecoveryRegion(around location: CLLocation) {
+    guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
+      NSLog("PokeLocation region monitoring unavailable")
+      return
+    }
+    let maximum = manager.maximumRegionMonitoringDistance
+    guard maximum > 0 else { return }
+    let radius = min(1000, maximum)
+    let region = CLCircularRegion(
+      center: location.coordinate,
+      radius: radius,
+      identifier: recoveryRegionId
+    )
+    region.notifyOnExit = true
+    region.notifyOnEntry = false
+    manager.startMonitoring(for: region)
+    NSLog("PokeLocation recovery region registered, radius %.0f m", radius)
   }
 
   private func upload(_ location: CLLocation, retried: Bool) {
