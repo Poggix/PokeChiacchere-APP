@@ -856,12 +856,24 @@ export default function App() {
     if (token && session?.user?.id) registerForPushNotifications();
   }, [token, session?.user?.id]);
 
-  // Sul telefono del socio la condivisione parte automaticamente al login.
-  // iOS chiederà i permessi necessari, senza pulsanti nell'app.
+  // La condivisione parte automaticamente solo con l'account del socio.
+  // Se si passa all'account owner sullo stesso telefono, arresta il task per evitare
+  // che l'owner venga inviato come posizione del socio.
   useEffect(() => {
-    if (token && session?.user?.id && !isOwner) {
-      enablePartnerLocationSharing();
+    if (!token || !session?.user?.id) return;
+    if (isOwner) {
+      (async () => {
+        try {
+          if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
+            await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
+          }
+        } catch (e) {
+          console.warn('Arresto condivisione posizione:', e?.message || e);
+        }
+      })();
+      return;
     }
+    enablePartnerLocationSharing();
   }, [token, session?.user?.id, isOwner]);
 
   const loadProfilesAndPresence = useCallback(async () => {
@@ -3570,25 +3582,38 @@ export default function App() {
         Alert.alert('Permesso posizione in background', 'Per aggiornare la posizione anche quando l’app è chiusa, imposta la localizzazione su “Sempre” nelle Impostazioni di iOS.');
         return;
       }
+      // Invia prima una posizione usando la sessione effettivamente attiva.
+      // In questo modo eventuali errori di RLS/API vengono mostrati subito e non
+      // restano nascosti dentro al task in background.
+      const storedRaw = await AsyncStorage.getItem('pokechiacchere_session');
+      const storedSession = storedRaw ? JSON.parse(storedRaw) : null;
+      if (!storedSession?.access_token || !storedSession?.user?.id || storedSession.user.id === OWNER_USER_ID) {
+        throw new Error('Sessione del socio non valida per la condivisione della posizione. Accedi con l’account del socio.');
+      }
+      const initialPosition = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const initialResponse = await fetch(URL + '/rest/v1/partner_locations?on_conflict=user_id', {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: 'Bearer ' + storedSession.access_token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ user_id: storedSession.user.id, latitude: initialPosition.coords.latitude, longitude: initialPosition.coords.longitude, accuracy: initialPosition.coords.accuracy, updated_at: new Date(initialPosition.timestamp || Date.now()).toISOString() }),
+      });
+      if (!initialResponse.ok) {
+        const detail = await initialResponse.text().catch(() => '');
+        throw new Error('Supabase non ha salvato la posizione (HTTP ' + initialResponse.status + '). ' + (detail || 'Controlla partner_locations e le policy RLS.'));
+      }
+      // Solo dopo aver salvato correttamente il primo punto avvia il tracciamento.
+      // Riavvia il task per evitare configurazioni residue di una sessione precedente.
+      if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
+        await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
+      }
       await Location.startLocationUpdatesAsync(PARTNER_LOCATION_TASK, {
         accuracy: Location.Accuracy.Balanced,
         distanceInterval: 100,
         timeInterval: 60000,
         pausesUpdatesAutomatically: true,
         showsBackgroundLocationIndicator: false,
+        deferredUpdatesDistance: 100,
+        deferredUpdatesInterval: 60000,
       });
-      // Invia subito una prima posizione: non aspettare il prossimo evento del task in background.
-      const initialPosition = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const storedRaw = await AsyncStorage.getItem('pokechiacchere_session');
-      const storedSession = storedRaw ? JSON.parse(storedRaw) : null;
-      if (storedSession?.access_token && storedSession?.user?.id) {
-        const initialResponse = await fetch(URL + '/rest/v1/partner_locations?on_conflict=user_id', {
-          method: 'POST',
-          headers: { apikey: KEY, Authorization: 'Bearer ' + storedSession.access_token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
-          body: JSON.stringify({ user_id: storedSession.user.id, latitude: initialPosition.coords.latitude, longitude: initialPosition.coords.longitude, accuracy: initialPosition.coords.accuracy, updated_at: new Date(initialPosition.timestamp || Date.now()).toISOString() }),
-        });
-        if (!initialResponse.ok) throw new Error('Invio posizione iniziale non riuscito (HTTP ' + initialResponse.status + '). Verifica la tabella partner_locations e le policy RLS.');
-      }
     } catch (e) {
       Alert.alert('Impossibile attivare la posizione', e?.message || 'Controlla i permessi iOS.');
     }
