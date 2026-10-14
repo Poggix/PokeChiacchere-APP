@@ -3522,23 +3522,33 @@ export default function App() {
 
   async function viewPartnerLocation() {
     try {
+      // Consideriamo "live" una posizione aggiornata negli ultimi 2 minuti.
+      // Se non c'è una posizione così recente, usiamo l'ultimo dato salvato.
       const response = await fetch(URL + '/rest/v1/partner_locations?select=user_id,latitude,longitude,accuracy,updated_at&user_id=neq.' + encodeURIComponent(OWNER_USER_ID) + '&order=updated_at.desc&limit=1', {
         headers: { apikey: KEY, Authorization: 'Bearer ' + token },
       });
       if (!response.ok) throw new Error('Supabase ha restituito ' + response.status);
       const rows = await response.json();
       if (!rows.length) {
-        Alert.alert('Posizione socio', 'Nessuna posizione ricevuta. Il socio deve attivare la condivisione e autorizzare la localizzazione.');
+        Alert.alert('Posizione socio', 'Non è ancora stata registrata alcuna posizione dal telefono del socio.');
         return;
       }
+
       const p = rows[0];
+      const updatedAt = new Date(p.updated_at).getTime();
+      const isLive = Number.isFinite(updatedAt) && Date.now() - updatedAt <= 2 * 60 * 1000;
       const date = new Date(p.updated_at).toLocaleString('it-IT');
-      Alert.alert('Posizione socio', 'Ultimo aggiornamento: ' + date + '\\nPrecisione: ' + (p.accuracy == null ? 'sconosciuta' : Math.round(p.accuracy) + ' m') + '\\nCoordinate: ' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5), [
+      const ageMinutes = Number.isFinite(updatedAt) ? Math.max(0, Math.floor((Date.now() - updatedAt) / 60000)) : null;
+      const status = isLive
+        ? 'Posizione recente (aggiornata negli ultimi 2 minuti)'
+        : 'Posizione live non disponibile: mostro l’ultima posizione salvata';
+      const age = ageMinutes === null ? '' : '\\nEtà del dato: ' + (ageMinutes < 1 ? 'meno di un minuto' : ageMinutes + (ageMinutes === 1 ? ' minuto' : ' minuti'));
+      Alert.alert(isLive ? 'Posizione socio · Recente' : 'Posizione socio · Ultima nota', status + '\\nUltimo aggiornamento: ' + date + age + '\\nPrecisione: ' + (p.accuracy == null ? 'sconosciuta' : Math.round(p.accuracy) + ' m') + '\\nCoordinate: ' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5), [
         { text: 'Chiudi', style: 'cancel' },
         { text: 'Apri mappa', onPress: () => Linking.openURL('https://maps.apple.com/?ll=' + p.latitude + ',' + p.longitude) },
       ]);
     } catch (e) {
-      Alert.alert('Posizione non disponibile', e?.message || 'Controlla la connessione e le policy Supabase.');
+      Alert.alert('Posizione non disponibile', e?.message || 'Non è stato possibile recuperare la posizione. Controlla la connessione e le policy Supabase.');
     }
   }
 
