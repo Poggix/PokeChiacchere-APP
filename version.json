@@ -3,6 +3,6 @@
   "build": 1,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 2.6.5 build 1: aggiunta diagnostica memoria per documenti, cache e file più grandi.",
+  "notes": "Versione 2.6.5 build 1",
   "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v2.6.5-build1/PokeChiacchere-v2.6.5-build1.ipa"
 }
