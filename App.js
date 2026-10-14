@@ -925,7 +925,13 @@ export default function App() {
       })();
       return;
     }
+
+    // Avvia al login e ricontrolla quando l'app torna in primo piano.
     enablePartnerLocationSharing();
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') enablePartnerLocationSharing();
+    });
+    return () => appStateSubscription.remove();
   }, [token, session?.user?.id, isOwner]);
 
   const loadProfilesAndPresence = useCallback(async () => {
@@ -3622,8 +3628,14 @@ export default function App() {
 
   async function enablePartnerLocationSharing() {
     try {
-      // Se già attiva, non chiedere nuovamente i permessi a ogni accesso.
-      if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) return;
+      // Non basta che il task risulti registrato: dopo sospensioni o riprese
+      // controlla anche che gli aggiornamenti di posizione siano effettivamente avviati.
+      const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
+      if (registered) {
+        const started = await Location.hasStartedLocationUpdatesAsync(PARTNER_LOCATION_TASK);
+        if (started) return;
+        await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK).catch(() => {});
+      }
       const foreground = await Location.requestForegroundPermissionsAsync();
       if (foreground.status !== 'granted') {
         Alert.alert('Permesso posizione necessario', 'Per condividere automaticamente la posizione con l’owner, consenti l’accesso alla posizione nelle impostazioni di iOS.');
