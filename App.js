@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import * as BackgroundTask from 'expo-background-task';
+import * as TaskManager from 'expo-task-manager';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
@@ -33,6 +35,54 @@ Notifications.setNotificationHandler({
     shouldShowBanner: true,
     shouldShowList: true,
   }),
+});
+
+
+const PARTNER_NOTIFICATION_BACKGROUND_TASK = 'pokechiacchere-partner-notifications';
+
+TaskManager.defineTask(PARTNER_NOTIFICATION_BACKGROUND_TASK, async () => {
+  try {
+    const rawSession = await AsyncStorage.getItem('pokechiacchere_session');
+    const storedSession = rawSession ? JSON.parse(rawSession) : null;
+    const userId = storedSession?.user?.id;
+    const accessToken = storedSession?.access_token;
+    if (!userId || !accessToken) return BackgroundTask.BackgroundTaskResult.Failed;
+
+    const seenRaw = await AsyncStorage.getItem('pokechiacchere_seen_local_notifications');
+    const seen = new Set(JSON.parse(seenRaw || '[]').map(String));
+    const response = await fetch(
+      `https://omovacbvfhmtjqrrgszx.supabase.co/rest/v1/partner_notifications?select=id,title,body,sender_id,created_at&sender_id=neq.${encodeURIComponent(userId)}&order=created_at.asc&limit=30`,
+      {
+        headers: {
+          apikey: 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9',
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    if (!response.ok) return BackgroundTask.BackgroundTaskResult.Failed;
+    const rows = await response.json();
+    for (const item of (Array.isArray(rows) ? rows : []).filter((row) => !seen.has(String(row.id)))) {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: item.title || 'PokeChiacchere',
+          body: item.body || 'Hai ricevuto una nuova notifica.',
+          data: { partnerNotificationId: item.id },
+          sound: true,
+        },
+        trigger: null,
+      });
+      seen.add(String(item.id));
+    }
+    await AsyncStorage.setItem(
+      'pokechiacchere_seen_local_notifications',
+      JSON.stringify([...seen].slice(-200))
+    );
+    return BackgroundTask.BackgroundTaskResult.Success;
+  } catch (error) {
+    console.warn('Controllo notifiche in background fallito:', error?.message || error);
+    return BackgroundTask.BackgroundTaskResult.Failed;
+  }
 });
 
 const URL = 'https://omovacbvfhmtjqrrgszx.supabase.co';
@@ -740,6 +790,29 @@ export default function App() {
       response.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!token || !session?.user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const status = await BackgroundTask.getStatusAsync();
+        if (status !== BackgroundTask.BackgroundTaskStatus.Available) {
+          console.warn('Attività in background non disponibile su questo dispositivo.');
+          return;
+        }
+        const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_NOTIFICATION_BACKGROUND_TASK);
+        if (!registered) {
+          await BackgroundTask.registerTaskAsync(PARTNER_NOTIFICATION_BACKGROUND_TASK, {
+            minimumInterval: 15,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) console.warn('Registrazione attività in background non riuscita:', error?.message || error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token, session?.user?.id]);
 
   useEffect(() => {
     if (token && session?.user?.id) registerForPushNotifications();
