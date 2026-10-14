@@ -1,8 +1,8 @@
 {
-  "version": "3.1.2",
-  "build": 3,
+  "version": "3.1.3",
+  "build": 4,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.1.2 build 3",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.1.2-build3/PokeChiacchere-v3.1.2-build3.ipa"
+  "notes": "Versione 3.1.3 build 4 - miglioramenti precisione e riavvio aggiornamento posizione",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.1.3-build4/PokeChiacchere-v3.1.3-build4.ipa"
 }
