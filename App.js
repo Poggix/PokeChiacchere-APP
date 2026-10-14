@@ -319,6 +319,10 @@ export default function App() {
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
   const [downloadedIpa, setDownloadedIpa] = useState(null);
+  const [savedAccounts, setSavedAccounts] = useState([]);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountBusy, setAccountBusy] = useState(false);
 
   const [records, setRecords] = useState({
     sales: [],
@@ -461,10 +465,13 @@ export default function App() {
           const renewed = await response.json();
           if (response.ok && renewed.access_token) {
             setSession(renewed);
-            await AsyncStorage.setItem(
-              'pokechiacchere_session',
-              JSON.stringify(renewed)
-            );
+            await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(renewed));
+            const rawAccounts = await AsyncStorage.getItem('pokechiacchere_accounts');
+            let accounts = [];
+            try { accounts = JSON.parse(rawAccounts || '[]'); } catch (_) {}
+            accounts = [renewed, ...accounts.filter((item) => item?.user?.id !== renewed.user?.id)];
+            setSavedAccounts(accounts);
+            await AsyncStorage.setItem('pokechiacchere_accounts', JSON.stringify(accounts));
             return;
           }
         } catch (_) {}
@@ -956,23 +963,27 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    AsyncStorage.getItem('pokechiacchere_session')
-      .then((raw) => {
-        if (active && raw) {
-          try {
-            setSession(JSON.parse(raw));
-          } catch {
-            AsyncStorage.removeItem('pokechiacchere_session');
-          }
+    (async () => {
+      try {
+        const [rawSession, rawAccounts] = await Promise.all([
+          AsyncStorage.getItem('pokechiacchere_session'),
+          AsyncStorage.getItem('pokechiacchere_accounts'),
+        ]);
+        let accounts = [];
+        try { accounts = JSON.parse(rawAccounts || '[]'); } catch (_) {}
+        let current = null;
+        try { current = rawSession ? JSON.parse(rawSession) : null; } catch (_) {}
+        if (current?.user?.id && current?.access_token && !accounts.some((item) => item?.user?.id === current.user.id)) accounts = [current, ...accounts];
+        accounts = accounts.filter((item) => item?.user?.id && item?.access_token);
+        if (active) {
+          setSavedAccounts(accounts);
+          if (current) setSession(current);
         }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setSessionReady(true);
-      });
-    return () => {
-      active = false;
-    };
+        await AsyncStorage.setItem('pokechiacchere_accounts', JSON.stringify(accounts));
+      } catch (_) {}
+      finally { if (active) setSessionReady(true); }
+    })();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -1058,14 +1069,74 @@ export default function App() {
         );
       }
       setSession(data);
-      await AsyncStorage.setItem(
-        'pokechiacchere_session',
-        JSON.stringify(data)
-      );
+      await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(data));
+      const rawAccounts = await AsyncStorage.getItem('pokechiacchere_accounts');
+      let accounts = [];
+      try { accounts = JSON.parse(rawAccounts || '[]'); } catch (_) {}
+      accounts = [data, ...accounts.filter((item) => item?.user?.id !== data.user?.id)];
+      setSavedAccounts(accounts);
+      await AsyncStorage.setItem('pokechiacchere_accounts', JSON.stringify(accounts));
     } catch (e) {
       Alert.alert('Errore di accesso', e.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function switchSavedAccount(account) {
+    if (!account?.access_token || !account?.user?.id) return;
+    setSession(account);
+    await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(account));
+    setPage('home');
+    setForm({});
+    setEditing(null);
+    setPicker(null);
+    setRecords({ sales: [], purchases: [], internal_payments: [], withdrawals: [], products: [], customers: [] });
+    setActivityLogs([]);
+    setSelectedActivity(null);
+    setActivitySearch('');
+    setActivityActionFilter('ALL');
+    setActivityTableFilter('ALL');
+    Alert.alert('Account cambiato', 'Ora stai usando ' + (account.user.email || 'l’account selezionato') + '.');
+  }
+
+  async function addAnotherAccount() {
+    if (!accountEmail.trim() || !accountPassword) {
+      Alert.alert('Aggiungi account', 'Inserisci email e password del secondo account.');
+      return;
+    }
+    setAccountBusy(true);
+    try {
+      const response = await fetch(`${URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: accountEmail.trim(), password: accountPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.access_token || !data?.user?.id) {
+        throw new Error(data.error_description || data.message || 'Accesso non riuscito');
+      }
+      const accounts = [data, ...savedAccounts.filter((item) => item?.user?.id !== data.user.id)];
+      setSavedAccounts(accounts);
+      await AsyncStorage.setItem('pokechiacchere_accounts', JSON.stringify(accounts));
+      setAccountEmail('');
+      setAccountPassword('');
+      await switchSavedAccount(data);
+    } catch (e) {
+      Alert.alert('Account non aggiunto', e.message || 'Verifica email e password.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function removeSavedAccount(account) {
+    const accounts = savedAccounts.filter((item) => item?.user?.id !== account?.user?.id);
+    setSavedAccounts(accounts);
+    await AsyncStorage.setItem('pokechiacchere_accounts', JSON.stringify(accounts));
+    if (session?.user?.id === account?.user?.id) {
+      const next = accounts[0] || null;
+      if (next) await switchSavedAccount(next);
+      else await signOut();
     }
   }
 
@@ -3626,7 +3697,19 @@ export default function App() {
         <View style={s.panel}>
           <Text style={s.panelTitle}>Account attivo</Text>
           <Text style={s.activityActor}>{session?.user?.email || 'Email non disponibile'}</Text>
-          <Text style={s.mutedSmall}>Le operazioni vengono associate all'account Supabase con cui hai effettuato l'accesso.</Text>
+          <Text style={s.mutedSmall}>Tieni più account collegati sul dispositivo e passa dall'uno all'altro senza uscire ogni volta.</Text>
+          {savedAccounts.map((account) => (
+            <View key={account.user.id} style={{ backgroundColor: C.panel2, borderRadius: 12, padding: 12, marginTop: 10 }}>
+              <Text style={{ color: C.white, fontWeight: '800', fontSize: 13 }}>{account.user.email || 'Account senza email'}</Text>
+              <Text style={s.mutedSmall}>{account.user.id === session?.user?.id ? 'Account attualmente attivo' : 'Account salvato'}</Text>
+              {account.user.id !== session?.user?.id && <Button title="Passa a questo account" type="secondary" onPress={() => switchSavedAccount(account)} />}
+              <Button title="Rimuovi account salvato" type="danger" onPress={() => Alert.alert('Rimuovere account?', 'Verrà rimosso da questo dispositivo, senza eliminare l’account Supabase.', [{ text: 'Annulla', style: 'cancel' }, { text: 'Rimuovi', style: 'destructive', onPress: () => removeSavedAccount(account) }])} />
+            </View>
+          ))}
+          <Text style={[s.sectionTitle, { marginTop: 16 }]}>Aggiungi un altro account</Text>
+          <Field label="Email Supabase" value={accountEmail} onChangeText={setAccountEmail} placeholder="email@esempio.it" />
+          <Field label="Password" value={accountPassword} onChangeText={setAccountPassword} placeholder="Password account" />
+          <Button title={accountBusy ? 'Accesso in corso…' : 'Aggiungi e passa all’account'} onPress={addAnotherAccount} />
         </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Aggiornamenti app</Text>
