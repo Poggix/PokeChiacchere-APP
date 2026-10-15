@@ -1694,6 +1694,15 @@ export default function App() {
       const parts = value.split(' ');
       change('first_name', parts.shift() || '');
       change('last_name', parts.join(' '));
+    } else if (picker.key && picker.key.startsWith('order_items.')) {
+      const match = picker.key.match(/^order_items\.(\d+)\.product$/);
+      if (match) {
+        const index = Number(match[1]);
+        setForm((old) => ({
+          ...old,
+          order_items: (old.order_items || []).map((line, i) => i === index ? { ...line, product: value } : line),
+        }));
+      }
     } else {
       change(picker.key, value);
     }
@@ -2355,6 +2364,13 @@ export default function App() {
             <Text style={[s.sectionTitle, { color: C.green }]}>① DATI ORDINE E CLIENTE</Text>
             <Field label="Data (GG/MM/AAAA)" value={form.date} onChangeText={(v) => change('date', v)} placeholder="GG/MM/AAAA" />
             <Field label="Numero ordine" value={form.order_number} onChangeText={(v) => change('order_number', v)} />
+            {dropdown(
+              'Scelta rapida cliente',
+              'customer',
+              'customer',
+              [form.first_name, form.last_name].filter(Boolean).join(' '),
+              'Seleziona un cliente dall’archivio'
+            )}
             <Field label="Nome cliente" value={form.first_name} onChangeText={(v) => change('first_name', v)} />
             <Field label="Cognome cliente" value={form.last_name} onChangeText={(v) => change('last_name', v)} />
           </View>
@@ -2373,7 +2389,15 @@ export default function App() {
                 </View>
                 {index === 0
                   ? dropdown('Prodotto', 'product', 'product', form.product, 'Scegli o scrivi un prodotto')
-                  : <Field label="Prodotto" value={item.product} onChangeText={(v) => updateExtra(index - 1, 'product', v)} placeholder="Nome prodotto" />}
+                  : dropdown('Prodotto', 'product', `order_items.${index - 1}.product`, item.product, 'Scegli o scrivi un prodotto')}
+                {(() => {
+                  const catalogProduct = (records.products || []).find((row) => String(row.name || '').toLowerCase() === String(item.product || '').toLowerCase());
+                  return catalogProduct?.photo_url ? (
+                    <View style={{ marginTop: 8, marginBottom: 8 }}>
+                      <Image source={{ uri: catalogProduct.photo_url }} style={{ width: 88, height: 88, borderRadius: 10, backgroundColor: C.card }} resizeMode="cover" />
+                    </View>
+                  ) : null;
+                })()}
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 0.7 }}>
                     <Field label="Quantità" value={item.quantity} onChangeText={(v) => index === 0 ? change('quantity', v) : updateExtra(index - 1, 'quantity', v)} keyboardType="decimal-pad" />
