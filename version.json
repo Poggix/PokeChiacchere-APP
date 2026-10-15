@@ -1,8 +1,8 @@
 {
   "version": "3.2.6",
-  "build": 17,
+  "build": 18,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Integrato Transistor Background Geolocation per il recupero nativo tramite geofence; richiede licenza di prova per build Release.",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.6-build17/PokeChiacchere-v3.2.6-build17.ipa"
+  "notes": "Test Release con licenza trial Transistor Background Geolocation.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.6-build18/PokeChiacchere-v3.2.6-build18.ipa"
 }
