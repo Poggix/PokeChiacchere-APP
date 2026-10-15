@@ -2658,14 +2658,16 @@ export default function App() {
             <View style={{ marginBottom: 12 }}>
               <Text style={s.label}>Foto prodotto</Text>
               {form.photo_preview ? (
-                <Image source={{ uri: form.photo_preview }} style={{ width: 112, height: 112, borderRadius: 12, marginBottom: 10, backgroundColor: C.card }} resizeMode="cover" />
+                <TouchableOpacity onPress={chooseProductPhoto} activeOpacity={0.8}>
+                  <Image source={{ uri: form.photo_preview }} style={{ width: 112, height: 112, borderRadius: 12, marginBottom: 10, backgroundColor: C.card }} resizeMode="cover" />
+                </TouchableOpacity>
               ) : (
                 <View style={{ width: 112, height: 112, borderRadius: 12, marginBottom: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55', alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ color: C.muted, fontSize: 28 }}>▧</Text>
                   <Text style={{ color: C.muted, fontSize: 11 }}>Nessuna foto</Text>
                 </View>
               )}
-              <Button title="📷 Scegli foto prodotto" type="secondary" onPress={chooseProductPhoto} />
+              <Button title="📷 Apri galleria e scegli foto" type="secondary" onPress={chooseProductPhoto} />
             </View>
           )}
           <Button
