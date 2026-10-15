@@ -1350,6 +1350,39 @@ export default function App() {
     }
   }
 
+  async function uploadProductPhoto(uri, mimeType = 'image/jpeg') {
+    if (!token) throw new Error('Sessione non valida.');
+    const localResponse = await fetch(uri);
+    const blob = await localResponse.blob();
+    const extension = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
+    const objectPath = `products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+    const uploadResponse = await fetch(`${URL}/storage/v1/object/product-photos/${objectPath}`, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: `Bearer ${token}`, 'Content-Type': mimeType, 'x-upsert': 'true' },
+      body: blob,
+    });
+    if (!uploadResponse.ok) throw new Error(await uploadResponse.text() || 'Caricamento foto non riuscito');
+    return `${URL}/storage/v1/object/public/product-photos/${objectPath}`;
+  }
+
+  async function chooseProductPhoto() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.82,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      const asset = result.assets[0];
+      setLoading(true);
+      const url = await uploadProductPhoto(asset.uri, asset.mimeType || 'image/jpeg');
+      setForm((old) => ({ ...old, photo_url: url, photo_preview: asset.uri }));
+      Alert.alert('Foto caricata', 'La foto verrà salvata nell’archivio quando premi “Aggiungi prodotto”.');
+    } catch (e) {
+      Alert.alert('Errore foto prodotto', 'Verifica che lo storage product-photos sia configurato in Supabase. ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function addCatalog(table, value) {
     const name = String(value || '').trim();
     if (!name) return;
@@ -2299,213 +2332,87 @@ export default function App() {
   }
 
   function renderSaleForm() {
+    const items = [
+      { product: form.product || '', quantity: form.quantity || '1', unit_price: form.unit_price || '0' },
+      ...(Array.isArray(form.order_items) ? form.order_items : []),
+    ];
+    const orderTotal = items.reduce((sum, item) => sum + num(item.quantity) * num(item.unit_price), 0);
+    const itemCost = items.reduce((sum, item) => sum + getFifoSaleCost(
+      item.product, item.quantity, editing?.table === 'sales' ? editing.id : null
+    ).totalCost, 0);
     const total = num(form.quantity) * num(form.unit_price);
-    const cost = num(form.quantity) * num(form.purchase_unit_cost);
+    const cost = getFifoSaleCost(form.product, form.quantity, editing?.table === 'sales' ? editing.id : null).totalCost;
+    const updateExtra = (index, key, value) => setForm((old) => ({
+      ...old,
+      order_items: (old.order_items || []).map((line, i) => i === index ? { ...line, [key]: value } : line),
+    }));
 
     return (
       <>
-        {header(
-          editing ? 'Modifica vendita' : 'Nuova vendita',
-          'Registrazione TikTok Shop'
-        )}
+        {header(editing ? 'Modifica vendita' : 'Nuova vendita', 'Registrazione TikTok Shop')}
         <View style={s.panel}>
-          <Field
-            label="Data (GG/MM/AAAA)"
-            value={form.date}
-            onChangeText={(v) => change('date', v)}
-            placeholder="GG/MM/AAAA"
-          />
-          <Field
-            label="Numero ordine"
-            value={form.order_number}
-            onChangeText={(v) => change('order_number', v)}
-          />
-          {dropdown(
-            'Cliente',
-            'customer',
-            'customer',
-            [form.first_name, form.last_name].filter(Boolean).join(' '),
-            'Scegli o scrivi un cliente'
-          )}
-          <Field
-            label="Nome cliente"
-            value={form.first_name}
-            onChangeText={(v) => change('first_name', v)}
-          />
-          <Field
-            label="Cognome cliente"
-            value={form.last_name}
-            onChangeText={(v) => change('last_name', v)}
-          />
-          {dropdown(
-            'Prodotto',
-            'product',
-            'product',
-            form.product,
-            'Scegli o scrivi un prodotto'
-          )}
-          <Field
-            label="Quantità"
-            value={form.quantity}
-            onChangeText={(v) => change('quantity', v)}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Prezzo unitario (€)"
-            value={form.unit_price}
-            onChangeText={(v) => change('unit_price', v)}
-            keyboardType="decimal-pad"
-          />
-          {Array.isArray(form.order_items) && form.order_items.map((item, index) => (
-            <View key={`order-item-${index}`} style={[s.summary, { marginTop: 10 }]}>
-              <Text style={s.sectionTitle}>PRODOTTO AGGIUNTIVO {index + 1}</Text>
-              <Field
-                label="Prodotto"
-                value={item.product}
-                onChangeText={(v) => setForm((old) => ({
-                  ...old,
-                  order_items: old.order_items.map((line, i) => i === index ? { ...line, product: v } : line),
-                }))}
-                placeholder="Nome prodotto"
-              />
-              <Field
-                label="Quantità"
-                value={item.quantity}
-                onChangeText={(v) => setForm((old) => ({
-                  ...old,
-                  order_items: old.order_items.map((line, i) => i === index ? { ...line, quantity: v } : line),
-                }))}
-                keyboardType="decimal-pad"
-              />
-              <Field
-                label="Prezzo unitario (€)"
-                value={item.unit_price}
-                onChangeText={(v) => setForm((old) => ({
-                  ...old,
-                  order_items: old.order_items.map((line, i) => i === index ? { ...line, unit_price: v } : line),
-                }))}
-                keyboardType="decimal-pad"
-              />
-              <Button
-                title="Rimuovi prodotto"
-                type="danger"
-                onPress={() => setForm((old) => ({
-                  ...old,
-                  order_items: old.order_items.filter((_, i) => i !== index),
-                }))}
-              />
-            </View>
-          ))}
-          {!editing && (
-            <Button
-              title="+ Aggiungi un altro prodotto"
-              type="secondary"
-              onPress={() => setForm((old) => ({
+          <View style={[s.summary, { borderColor: C.green, borderWidth: 1, marginBottom: 14 }]}>
+            <Text style={[s.sectionTitle, { color: C.green }]}>① DATI ORDINE E CLIENTE</Text>
+            <Field label="Data (GG/MM/AAAA)" value={form.date} onChangeText={(v) => change('date', v)} placeholder="GG/MM/AAAA" />
+            <Field label="Numero ordine" value={form.order_number} onChangeText={(v) => change('order_number', v)} />
+            <Field label="Nome cliente" value={form.first_name} onChangeText={(v) => change('first_name', v)} />
+            <Field label="Cognome cliente" value={form.last_name} onChangeText={(v) => change('last_name', v)} />
+          </View>
+
+          <View style={[s.summary, { borderColor: C.green, borderWidth: 1, marginBottom: 14 }]}>
+            <Text style={[s.sectionTitle, { color: C.green }]}>② PRODOTTI DELL'ORDINE · {items.length}</Text>
+            {items.map((item, index) => (
+              <View key={index === 0 ? 'main-product' : `order-item-${index}`} style={[s.summary, { marginTop: 10, borderWidth: 1, borderColor: C.border || '#2B3C55' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={s.summaryLine}>Prodotto {index + 1}</Text>
+                  {index > 0 && !editing && (
+                    <TouchableOpacity onPress={() => setForm((old) => ({ ...old, order_items: old.order_items.filter((_, i) => i !== index - 1) }))}>
+                      <Text style={{ color: C.red, fontWeight: '800' }}>Rimuovi ✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {index === 0
+                  ? dropdown('Prodotto', 'product', 'product', form.product, 'Scegli o scrivi un prodotto')
+                  : <Field label="Prodotto" value={item.product} onChangeText={(v) => updateExtra(index - 1, 'product', v)} placeholder="Nome prodotto" />}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 0.7 }}>
+                    <Field label="Quantità" value={item.quantity} onChangeText={(v) => index === 0 ? change('quantity', v) : updateExtra(index - 1, 'quantity', v)} keyboardType="decimal-pad" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Field label="Prezzo unitario (€)" value={item.unit_price} onChangeText={(v) => index === 0 ? change('unit_price', v) : updateExtra(index - 1, 'unit_price', v)} keyboardType="decimal-pad" />
+                  </View>
+                </View>
+                <Text style={s.mutedText}>Totale prodotto: {money(num(item.quantity) * num(item.unit_price))}</Text>
+              </View>
+            ))}
+            {!editing && (
+              <Button title="+ Aggiungi un altro prodotto" type="secondary" onPress={() => setForm((old) => ({
                 ...old,
                 order_items: [...(old.order_items || []), { product: '', quantity: '1', unit_price: '0' }],
-              }))}
-            />
-          )}
-          <Field
-            label={`Commissioni TikTok (€) — ${tiktokFeePercent}%`}
-            value={form.fees}
-            onChangeText={(v) => change('fees', v)}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Costo spedizione (€)"
-            value={form.shipping_cost}
-            onChangeText={(v) => change('shipping_cost', v)}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Altri costi (€)"
-            value={form.other_costs}
-            onChangeText={(v) => change('other_costs', v)}
-            keyboardType="decimal-pad"
-          />
-          <View style={s.summary}>
-            <Text style={s.summaryLine}>
-              Costo merce automatico: {money(getFifoSaleCost(
-                form.product,
-                form.quantity,
-                editing?.table === 'sales' ? editing.id : null
-              ).totalCost)}
-            </Text>
-            <Text style={s.mutedText}>
-              Calcolato dai lotti ancora disponibili in magazzino, in ordine FIFO, indipendentemente dal socio che ha pagato l'acquisto.
-            </Text>
-            {num(form.quantity) > getFifoSaleCost(
-              form.product,
-              form.quantity,
-              editing?.table === 'sales' ? editing.id : null
-            ).available + 0.000001 && (
-              <Text style={{ color: C.red, fontSize: 12, marginTop: 8 }}>
-                Attenzione: quantità superiore alla giacenza disponibile.
-              </Text>
+              }))} />
             )}
+            <Text style={[s.summaryLine, { marginTop: 10 }]}>Totale prodotti: {money(orderTotal)}</Text>
           </View>
-          <Field
-            label="Costo unitario merce (€) — automatico"
-            value={String(Number(getFifoSaleCost(
-              form.product,
-              form.quantity,
-              editing?.table === 'sales' ? editing.id : null
-            ).unitCost.toFixed(4)))}
-            onChangeText={(v) => change('purchase_unit_cost', v)}
-            keyboardType="decimal-pad"
-          />
+
+          <View style={[s.summary, { borderColor: C.green, borderWidth: 1, marginBottom: 14 }]}>
+            <Text style={[s.sectionTitle, { color: C.green }]}>③ COSTI DELL'ORDINE</Text>
+            <Field label={`Commissioni TikTok (€) — ${tiktokFeePercent}%`} value={form.fees} onChangeText={(v) => change('fees', v)} keyboardType="decimal-pad" />
+            <Field label="Costo spedizione (€)" value={form.shipping_cost} onChangeText={(v) => change('shipping_cost', v)} keyboardType="decimal-pad" />
+            <Field label="Altri costi (€)" value={form.other_costs} onChangeText={(v) => change('other_costs', v)} keyboardType="decimal-pad" />
+          </View>
 
           <View style={s.summary}>
-            <Text style={s.summaryLine}>
-              Totale vendita (quantità × prezzo): {money(total)}
-            </Text>
-            <Text style={s.summaryLine}>
-              Costo spedizione: − {money(form.shipping_cost)}
-            </Text>
-            <Text style={s.summaryLine}>
-              Commissioni TikTok: − {money(form.fees)}
-            </Text>
-            <Text style={s.summaryLine}>
-              Altri costi: − {money(form.other_costs)}
-            </Text>
-            <Text style={s.summaryLine}>Costo merce: − {money(cost)}</Text>
+            <Text style={s.summaryLine}>Totale vendita: {money(orderTotal)}</Text>
+            <Text style={s.summaryLine}>Costi merce stimati: − {money(itemCost)}</Text>
+            <Text style={s.summaryLine}>Spedizione: − {money(form.shipping_cost)}</Text>
+            <Text style={s.summaryLine}>Commissioni TikTok: − {money(form.fees)}</Text>
+            <Text style={s.summaryLine}>Altri costi: − {money(form.other_costs)}</Text>
+            <Text style={s.summaryLine}>Tassa stimata (2%): − {money(orderTotal * 0.02)}</Text>
             <View style={s.separator} />
-            <Text style={s.summaryLine}>
-              Utile prima della tassa:{' '}
-              {money(
-                total -
-                  cost -
-                  num(form.fees) -
-                  num(form.shipping_cost) -
-                  num(form.other_costs)
-              )}
-            </Text>
-            <Text style={s.summaryLine}>
-              Tassa stimata (2% del totale vendita): − {money(total * 0.02)}
-            </Text>
-            <Text style={[s.summaryLine, { color: C.green }]}>
-              Utile netto stimato:{' '}
-              {money(
-                total -
-                  cost -
-                  num(form.fees) -
-                  num(form.shipping_cost) -
-                  num(form.other_costs) -
-                  total * 0.02
-              )}
-            </Text>
+            <Text style={[s.summaryLine, { color: C.green }]}>Utile netto stimato: {money(orderTotal - itemCost - num(form.fees) - num(form.shipping_cost) - num(form.other_costs) - orderTotal * 0.02)}</Text>
           </View>
-
-          <Button
-            title={editing ? 'Salva modifiche' : 'Salva vendita'}
-            onPress={saveSale}
-          />
-          <Button
-            title="Annulla"
-            type="secondary"
-            onPress={() => setPage('sales')}
-          />
+          <Button title={editing ? 'Salva modifiche' : 'Salva vendita'} onPress={saveSale} />
+          <Button title="Annulla" type="secondary" onPress={() => setPage('sales')} />
         </View>
       </>
     );
@@ -2747,6 +2654,20 @@ export default function App() {
             onChangeText={(v) => change('name', v)}
             placeholder="Inserisci un nome"
           />
+          {isProduct && (
+            <View style={{ marginBottom: 12 }}>
+              <Text style={s.label}>Foto prodotto</Text>
+              {form.photo_preview ? (
+                <Image source={{ uri: form.photo_preview }} style={{ width: 112, height: 112, borderRadius: 12, marginBottom: 10, backgroundColor: C.card }} resizeMode="cover" />
+              ) : (
+                <View style={{ width: 112, height: 112, borderRadius: 12, marginBottom: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: C.muted, fontSize: 28 }}>▧</Text>
+                  <Text style={{ color: C.muted, fontSize: 11 }}>Nessuna foto</Text>
+                </View>
+              )}
+              <Button title="📷 Scegli foto prodotto" type="secondary" onPress={chooseProductPhoto} />
+            </View>
+          )}
           <Button
             title={isProduct ? '+ Aggiungi prodotto' : '+ Aggiungi cliente'}
             onPress={async () => {
@@ -2757,9 +2678,32 @@ export default function App() {
               }
               setLoading(true);
               try {
-                await addCatalog(table, name);
+                if (isProduct) {
+                  const existing = records.products.find((row) => String(row.name || '').toLowerCase() === name.toLowerCase());
+                  if (existing) {
+                    if (form.photo_url && existing.id) {
+                      await api(`/rest/v1/products?id=eq.${encodeURIComponent(existing.id)}`, token, {
+                        method: 'PATCH',
+                        headers: { Prefer: 'return=minimal' },
+                        body: JSON.stringify({ photo_url: form.photo_url }),
+                      });
+                    } else if (!form.photo_url) {
+                      Alert.alert('Prodotto già presente', 'Il prodotto esiste già. Puoi selezionare una foto e salvare per aggiornarla.');
+                      return;
+                    }
+                  } else {
+                    await api('/rest/v1/products', token, {
+                      method: 'POST',
+                      headers: { Prefer: 'return=minimal' },
+                      body: JSON.stringify({ name, photo_url: form.photo_url || null }),
+                    });
+                  }
+                } else {
+                  await addCatalog(table, name);
+                }
                 setForm({});
-                Alert.alert('Archivio aggiornato', `${name} è stato aggiunto.`);
+                await loadData();
+                Alert.alert('Archivio aggiornato', `${name} è stato ${isProduct ? 'salvato' : 'aggiunto'}.`);
               } catch (e) {
                 Alert.alert('Errore archivio', e.message);
               } finally {
@@ -2804,7 +2748,10 @@ export default function App() {
             key={row.id}
             activeOpacity={0.82}
             onPress={() => {
-              if (isProduct) return;
+              if (isProduct) {
+                setForm({ name: row.name || '', photo_url: row.photo_url || '', photo_preview: row.photo_url || '', product_id: row.id });
+                return;
+              }
               setSelectedCustomer(row);
               setForm({
                 phone: row.phone || '',
@@ -2826,6 +2773,11 @@ export default function App() {
                 borderLeftColor: isProduct ? C.yellow : '#C39BFF',
               },
             ]}>
+            {isProduct && (
+              row.photo_url
+                ? <Image source={{ uri: row.photo_url }} style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card }} resizeMode="cover" />
+                : <View style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.muted, fontSize: 22 }}>▧</Text></View>
+            )}
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text
                 style={[
