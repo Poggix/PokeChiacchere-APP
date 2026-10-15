@@ -1,8 +1,8 @@
 {
-  "version": "3.2.2",
-  "build": 13,
+  "version": "3.2.3",
+  "build": 14,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.2.2 build 13",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.2-build13/PokeChiacchere-v3.2.2-build13.ipa"
+  "notes": "Rinnovo automatico della sessione Supabase quando si attiva la condivisione della posizione.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.3-build14/PokeChiacchere-v3.2.3-build14.ipa"
 }
