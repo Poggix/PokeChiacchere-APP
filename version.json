@@ -1,8 +1,8 @@
 {
-  "version": "3.1.7",
-  "build": 8,
+  "version": "3.1.8",
+  "build": 9,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.1.7 build 8",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.1.7-build8/PokeChiacchere-v3.1.7-build8.ipa"
+  "notes": "Percentuale commissioni TikTok configurabile dalla dashboard e calcolo automatico nelle nuove vendite.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.1.8-build9/PokeChiacchere-v3.1.8-build9.ipa"
 }
