@@ -25,7 +25,8 @@
     "expo-background-task": "~1.0.8",
     "expo-task-manager": "~14.0.8",
     "expo-location": "~19.0.8",
-    "react-native-maps": "1.20.1"
+    "react-native-maps": "1.20.1",
+    "react-native-background-geolocation": "^5.2.0"
   },
   "private": true
 }
