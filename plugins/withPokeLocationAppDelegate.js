@@ -18,9 +18,12 @@ module.exports = function withPokeLocationAppDelegate(config) {
       if (!contents.includes(launchCall)) {
         throw new Error('PokeLocation plugin: unsupported AppDelegate template; cannot install native location restoration.');
       }
+      // Let Expo/UIApplication finish its launch setup first, then restore the
+      // persisted native Core Location services during a location-triggered relaunch.
       contents = contents.replace(
         launchCall,
-        restoreCall + '\n    ' + launchCall
+        'let pokeLocationLaunchResult = super.application(application, didFinishLaunchingWithOptions: launchOptions)\n    ' +
+          restoreCall + '\n    return pokeLocationLaunchResult'
       );
     }
 
