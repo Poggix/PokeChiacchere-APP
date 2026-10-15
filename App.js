@@ -3781,17 +3781,49 @@ export default function App() {
       // In questo modo eventuali errori di RLS/API vengono mostrati subito e non
       // restano nascosti dentro al task in background.
       const storedRaw = await AsyncStorage.getItem('pokechiacchere_session');
-      const storedSession = storedRaw ? JSON.parse(storedRaw) : null;
+      let storedSession = storedRaw ? JSON.parse(storedRaw) : null;
       if (!storedSession?.access_token || !storedSession?.user?.id || storedSession.user.id === OWNER_USER_ID) {
         throw new Error('Sessione del socio non valida per la condivisione della posizione. Accedi con l’account del socio.');
       }
+
+      const refreshLocationSession = async () => {
+        if (!storedSession?.refresh_token) {
+          throw new Error('La sessione è scaduta e non è disponibile un token di rinnovo. Esci dal gestionale e accedi nuovamente.');
+        }
+        const refreshResponse = await fetch(URL + '/auth/v1/token?grant_type=refresh_token', {
+          method: 'POST',
+          headers: { apikey: KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: storedSession.refresh_token }),
+        });
+        const renewed = await refreshResponse.json().catch(() => ({}));
+        if (!refreshResponse.ok || !renewed.access_token) {
+          throw new Error('Non riesco a rinnovare la sessione Supabase. Esci dal gestionale e accedi nuovamente.');
+        }
+        storedSession = { ...storedSession, ...renewed, user: renewed.user || storedSession.user };
+        await AsyncStorage.setItem('pokechiacchere_session', JSON.stringify(storedSession));
+        setSession(storedSession);
+        return storedSession;
+      };
+
+      // Rinnova prima dell'invio se il JWT è scaduto o sta per scadere.
+      const expiresAt = Number(storedSession.expires_at || 0);
+      if (storedSession.refresh_token && expiresAt && expiresAt * 1000 < Date.now() + 60000) {
+        await refreshLocationSession();
+      }
+
       // Per la posizione condivisa usa alta precisione anche sul primo rilevamento.
       const initialPosition = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const initialResponse = await fetch(URL + '/rest/v1/partner_locations?on_conflict=user_id', {
+      const sendInitialPosition = () => fetch(URL + '/rest/v1/partner_locations?on_conflict=user_id', {
         method: 'POST',
         headers: { apikey: KEY, Authorization: 'Bearer ' + storedSession.access_token, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
         body: JSON.stringify({ user_id: storedSession.user.id, latitude: initialPosition.coords.latitude, longitude: initialPosition.coords.longitude, accuracy: initialPosition.coords.accuracy, updated_at: new Date(initialPosition.timestamp || Date.now()).toISOString() }),
       });
+      let initialResponse = await sendInitialPosition();
+      if (initialResponse.status === 401) {
+        await initialResponse.text().catch(() => '');
+        await refreshLocationSession();
+        initialResponse = await sendInitialPosition();
+      }
       if (!initialResponse.ok) {
         const detail = await initialResponse.text().catch(() => '');
         throw new Error('Supabase non ha salvato la posizione (HTTP ' + initialResponse.status + '). ' + (detail || 'Controlla partner_locations e le policy RLS.'));
