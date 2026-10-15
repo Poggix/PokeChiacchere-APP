@@ -109,21 +109,41 @@ jobs:
               --notes "IPA generata automaticamente da GitHub Actions."
           fi
 
-          jq --arg version "$VERSION" \
-             --argjson build "$BUILD" \
-             --arg url "$DOWNLOAD_URL" \
-             --arg notes "Versione ${VERSION} build ${BUILD}" \
-             '.version = $version | .build = $build | .download_url = $url | .notes = $notes' \
-             version.json > version.json.tmp
-          mv version.json.tmp version.json
-
+          # Sincronizza version.json senza sovrascrivere i commit arrivati durante la build.
+          # Il workflow rigenera il file partendo ogni volta dall'ultimo main remoto.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add version.json
-          if ! git diff --cached --quiet; then
+
+          for ATTEMPT in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+
+            jq --arg version "$VERSION" \
+               --argjson build "$BUILD" \
+               --arg url "$DOWNLOAD_URL" \
+               --arg notes "Versione $VERSION build $BUILD" \
+               '.version = $version | .build = $build | .download_url = $url | .notes = $notes' \
+               version.json > version.json.tmp
+            mv version.json.tmp version.json
+
+            git add version.json
+            if git diff --cached --quiet; then
+              echo "version.json è già aggiornato."
+              break
+            fi
+
             git commit -m "Update version.json for v${VERSION} build ${BUILD}"
-            git push
-          fi
+            if git push origin HEAD:main; then
+              echo "version.json pubblicato correttamente."
+              break
+            fi
+
+            if [ "$ATTEMPT" -eq 3 ]; then
+              echo "Errore: impossibile pubblicare version.json dopo 3 tentativi."
+              exit 1
+            fi
+            echo "Il branch main è cambiato durante il push; riprovo sincronizzando nuovamente."
+          done
 
       - name: Carica anche l'artifact della compilazione
         uses: actions/upload-artifact@v4
