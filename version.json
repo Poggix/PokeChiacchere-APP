@@ -1,8 +1,8 @@
 {
-  "version": "3.2.4",
-  "build": 15,
+  "version": "3.2.5",
+  "build": 16,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Rafforzato il tracciamento iOS nativo: richiesta Always, fix posizione immediato e recupero CoreLocation.",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.4-build15/PokeChiacchere-v3.2.4-build15.ipa"
+  "notes": "Corretto l'ordine di ripristino del tracker Core Location dopo l'avvio nativo.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.5-build16/PokeChiacchere-v3.2.5-build16.ipa"
 }
