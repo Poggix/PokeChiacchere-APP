@@ -1393,7 +1393,7 @@ export default function App() {
       let sourceUri = form.photo_preview;
       // L'API richiede un file locale multipart; se si sta modificando un prodotto
       // già salvato, scarichiamo temporaneamente la foto dallo Storage.
-      if (/^https?:\\/\\//i.test(sourceUri)) {
+      if (/^https?:\/\//i.test(sourceUri)) {
         const downloaded = await FileSystem.downloadAsync(
           sourceUri,
           FileSystem.cacheDirectory + 'product-bg-input-' + Date.now() + '.jpg'
