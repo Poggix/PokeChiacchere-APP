@@ -1365,6 +1365,81 @@ export default function App() {
     return `${URL}/storage/v1/object/public/product-photos/${objectPath}`;
   }
 
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let output = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+      const a = bytes[i];
+      const hasB = i + 1 < bytes.length;
+      const hasC = i + 2 < bytes.length;
+      const b = hasB ? bytes[i + 1] : 0;
+      const d = hasC ? bytes[i + 2] : 0;
+      output += alphabet[a >> 2];
+      output += alphabet[((a & 3) << 4) | (b >> 4)];
+      output += hasB ? alphabet[((b & 15) << 2) | (d >> 6)] : '=';
+      output += hasC ? alphabet[d & 63] : '=';
+    }
+    return output;
+  }
+
+  async function removeProductBackground() {
+    if (!form.photo_preview) {
+      Alert.alert('Nessuna foto', 'Prima scegli una foto del prodotto.');
+      return;
+    }
+    setLoading(true);
+    try {
+      let sourceUri = form.photo_preview;
+      // L'API richiede un file locale multipart; se si sta modificando un prodotto
+      // già salvato, scarichiamo temporaneamente la foto dallo Storage.
+      if (/^https?:\\/\\//i.test(sourceUri)) {
+        const downloaded = await FileSystem.downloadAsync(
+          sourceUri,
+          FileSystem.cacheDirectory + 'product-bg-input-' + Date.now() + '.jpg'
+        );
+        sourceUri = downloaded.uri;
+      }
+      const response = await fetch(sourceUri);
+      const blob = await response.blob();
+      const formData = new FormData();
+      formData.append('file', {
+        uri: sourceUri,
+        name: 'product-photo.jpg',
+        type: 'image/jpeg',
+      });
+      formData.append('src', 'pokechiacchere');
+      const cutoutResponse = await fetch('https://bgninja.com/api/remove', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!cutoutResponse.ok) {
+        let detail = '';
+        try {
+          const errorBody = await cutoutResponse.json();
+          detail = errorBody.error || errorBody.detail || '';
+        } catch (_) {}
+        if (cutoutResponse.status === 402) {
+          throw new Error('Hai raggiunto il limite gratuito di 10 scontorni giornalieri per indirizzo IP. Riprova domani.');
+        }
+        throw new Error(detail || ('Servizio di scontorno non disponibile (HTTP ' + cutoutResponse.status + '). Riprova tra poco.'));
+      }
+      const pngBuffer = await cutoutResponse.arrayBuffer();
+      if (!pngBuffer || pngBuffer.byteLength < 100) throw new Error('Il servizio ha restituito un’immagine vuota.');
+      const localPng = FileSystem.cacheDirectory + 'product-cutout-' + Date.now() + '.png';
+      await FileSystem.writeAsStringAsync(localPng, arrayBufferToBase64(pngBuffer), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const publicUrl = await uploadProductPhoto(localPng, 'image/png');
+      setForm((old) => ({ ...old, photo_url: publicUrl, photo_preview: localPng }));
+      Alert.alert('Sfondo rimosso', 'Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
+    } catch (e) {
+      Alert.alert('Impossibile rimuovere lo sfondo', e?.message || 'Controlla la connessione e riprova.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function chooseProductPhoto() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -2694,6 +2769,12 @@ export default function App() {
                 </View>
               )}
               <Button title="📷 Apri galleria e scegli foto" type="secondary" onPress={chooseProductPhoto} />
+              {form.photo_preview ? (
+                <Button title="✂️ Rimuovi sfondo automaticamente" type="secondary" onPress={removeProductBackground} />
+              ) : null}
+              <Text style={[s.mutedText, { marginTop: 6 }]}>
+                Lo scontorno usa BGNinja: gratis fino a 10 foto al giorno per indirizzo IP. Serve una connessione internet.
+              </Text>
             </View>
           )}
           <Button
