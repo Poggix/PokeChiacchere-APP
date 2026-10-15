@@ -30,6 +30,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     manager.distanceFilter = 10
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
+    manager.showsBackgroundLocationIndicator = true
     if defaults.bool(forKey: "pokeLocationEnabled") { startServices() }
   }
 
@@ -54,15 +55,33 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     manager.distanceFilter = 10
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
-    if CLLocationManager.authorizationStatus() == .notDetermined {
+    manager.showsBackgroundLocationIndicator = true
+
+    // iOS-native authorization flow: also ask for Always if the user previously
+    // granted only When In Use. The system may present the upgrade prompt later.
+    switch CLLocationManager.authorizationStatus() {
+    case .notDetermined, .authorizedWhenInUse:
       manager.requestAlwaysAuthorization()
+    case .authorizedAlways:
+      break
+    case .denied, .restricted:
+      NSLog("PokeLocation: location permission denied/restricted; background tracking cannot run")
+      return
+    @unknown default:
+      break
     }
+
     manager.startUpdatingLocation()
     if CLLocationManager.significantLocationChangeMonitoringAvailable() {
       manager.startMonitoringSignificantLocationChanges()
     }
-    // Region monitoring is the native recovery path to test when iOS has
-    // terminated the process. It is event-driven, not continuous GPS.
+
+    // Request an immediate native fix so recovery-region monitoring can be
+    // registered even when manager.location is nil at process launch.
+    manager.requestLocation()
+
+    // Region monitoring is event-driven and may relaunch the app after an
+    // OS termination; it cannot override an explicit user force-quit.
     if manager.monitoredRegions.contains(where: { $0.identifier == recoveryRegionId }) == false,
        let last = manager.location {
       monitorRecoveryRegion(around: last)
@@ -82,7 +101,21 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   }
 
   public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-    if status == .authorizedAlways && defaults.bool(forKey: "pokeLocationEnabled") { startServices() }
+    guard defaults.bool(forKey: "pokeLocationEnabled") else { return }
+    switch status {
+    case .authorizedAlways:
+      startServices()
+    case .authorizedWhenInUse:
+      // Request the Always upgrade while the app is active; iOS decides when
+      // to show the system prompt.
+      manager.requestAlwaysAuthorization()
+    case .denied, .restricted:
+      NSLog("PokeLocation: authorization changed to denied/restricted")
+    case .notDetermined:
+      break
+    @unknown default:
+      break
+    }
   }
 
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
