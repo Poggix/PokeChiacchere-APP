@@ -1,8 +1,8 @@
 {
-  "version": "3.2.0",
-  "build": 11,
+  "version": "3.2.1",
+  "build": 12,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.2.0 build 11",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.0-build11/PokeChiacchere-v3.2.0-build11.ipa"
+  "notes": "Nuova schermata ordine con più prodotti e foto nell'archivio prodotti.",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.1-build12/PokeChiacchere-v3.2.1-build12.ipa"
 }
