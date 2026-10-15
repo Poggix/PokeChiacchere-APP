@@ -1400,8 +1400,6 @@ export default function App() {
         );
         sourceUri = downloaded.uri;
       }
-      const response = await fetch(sourceUri);
-      const blob = await response.blob();
       const formData = new FormData();
       formData.append('file', {
         uri: sourceUri,
