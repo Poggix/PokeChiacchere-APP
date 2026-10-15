@@ -349,6 +349,7 @@ export default function App() {
   const [whatsappRecipientsBusy, setWhatsappRecipientsBusy] = useState(false);
   const [whatsappRecipientSaving, setWhatsappRecipientSaving] = useState(false);
   const [form, setForm] = useState({});
+  const [tiktokFeePercent, setTiktokFeePercent] = useState(0);
   const [editing, setEditing] = useState(null);
   const [picker, setPicker] = useState(null);
   const [search, setSearch] = useState('');
@@ -450,6 +451,10 @@ export default function App() {
   const change = (key, value) => {
     setForm((old) => {
       const next = { ...old, [key]: value };
+      if (page === 'saleForm' && ['quantity', 'unit_price'].includes(key) && !editing) {
+        const saleTotal = num(key === 'quantity' ? value : next.quantity) * num(key === 'unit_price' ? value : next.unit_price);
+        next.fees = String(Number((saleTotal * tiktokFeePercent / 100).toFixed(2)));
+      }
       if (page === 'saleForm' && ['product', 'quantity'].includes(key)) {
         const productName = key === 'product' ? value : next.product;
         const qty = key === 'quantity' ? value : next.quantity;
@@ -1032,6 +1037,39 @@ export default function App() {
     }, 5000);
     return () => clearInterval(presenceRefresh);
   }, [page, token, session?.user?.id, loadProfilesAndPresence]);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem('pokechiacchere_tiktok_fee_percent').then((raw) => {
+      const value = Number(raw);
+      if (active && raw !== null && Number.isFinite(value) && value >= 0 && value <= 100) setTiktokFeePercent(value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  async function configureTiktokFeePercent() {
+    Alert.prompt(
+      'Commissioni TikTok',
+      'Inserisci la percentuale fissa da applicare al prezzo attuale della vendita.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        { text: 'Salva', onPress: async (raw) => {
+          const normalized = String(raw ?? '').trim().replace(',', '.');
+          const value = Number(normalized);
+          if (!normalized || !Number.isFinite(value) || value < 0 || value > 100) {
+            Alert.alert('Percentuale non valida', 'Inserisci un valore tra 0 e 100.');
+            return;
+          }
+          setTiktokFeePercent(value);
+          try { await AsyncStorage.setItem('pokechiacchere_tiktok_fee_percent', String(value)); }
+          catch (_) { Alert.alert('Errore', 'Non è stato possibile salvare la percentuale su questo dispositivo.'); }
+        } },
+      ],
+      'plain-text',
+      String(tiktokFeePercent),
+      'decimal-pad'
+    );
+  }
 
   useEffect(() => {
     let active = true;
@@ -2044,7 +2082,14 @@ export default function App() {
         </View>
 
         <View style={s.grid}>
-          <Card title="Commissioni TikTok" value={totals.fees} color={C.red} />
+          <View style={s.metric}>
+            <View style={[s.metricLine, { backgroundColor: C.red }]} />
+            <Text style={s.metricLabel}>Commissioni TikTok</Text>
+            <Text style={s.metricValue}>{money(totals.fees)}</Text>
+            <TouchableOpacity onPress={configureTiktokFeePercent} activeOpacity={0.75} style={{ alignSelf: 'flex-end', marginTop: 6, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: C.panel2 }}>
+              <Text style={{ color: C.cyan, fontSize: 12, fontWeight: '700' }}>⚙ {tiktokFeePercent}%</Text>
+            </TouchableOpacity>
+          </View>
           <Card title="Altri costi" value={totals.other} color={C.yellow} />
           <Card
             title="Costo merce venduta"
@@ -2259,7 +2304,7 @@ export default function App() {
             keyboardType="decimal-pad"
           />
           <Field
-            label="Commissioni TikTok (€)"
+            label={`Commissioni TikTok (€) — ${tiktokFeePercent}%`
             value={form.fees}
             onChangeText={(v) => change('fees', v)}
             keyboardType="decimal-pad"
