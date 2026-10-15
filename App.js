@@ -5,6 +5,7 @@ import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import PokeLocation from './modules/poke-location';
+import BackgroundGeolocation from 'react-native-background-geolocation';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
@@ -3761,6 +3762,31 @@ export default function App() {
 
   async function enablePartnerLocationSharing() {
     try {
+      // SDK nativo Transistor: mantiene la geofence stazionaria per il recupero
+      // dopo la terminazione; il modulo Swift esistente continua a inviare a Supabase.
+      await BackgroundGeolocation.ready({
+        geolocation: {
+          desiredAccuracy: BackgroundGeolocation.DesiredAccuracy.High,
+          distanceFilter: 10,
+          stationaryRadius: 200,
+          stopTimeout: 5,
+        },
+        app: {
+          stopOnTerminate: false,
+          startOnBoot: true,
+        },
+        logger: {
+          debug: true,
+          logLevel: BackgroundGeolocation.LogLevel.Verbose,
+        },
+      });
+      const bgState = await BackgroundGeolocation.getState();
+      if (!bgState.enabled) await BackgroundGeolocation.start();
+    } catch (bgError) {
+      console.warn('Background Geolocation SDK non avviato:', bgError?.message || bgError);
+    }
+
+    try {
       // Non interrompere un tracciamento già attivo quando l'app torna in primo piano:
       // stop/start ripetuti possono creare finestre senza aggiornamenti in background.
       const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
@@ -3866,6 +3892,7 @@ export default function App() {
   async function disablePartnerLocationSharing() {
     try {
       await PokeLocation.stopTracking().catch(() => {});
+      await BackgroundGeolocation.stop().catch(() => {});
       if (await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK)) {
         await Location.stopLocationUpdatesAsync(PARTNER_LOCATION_TASK);
       }
