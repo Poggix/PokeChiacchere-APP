@@ -51,7 +51,7 @@ jobs:
           const config = JSON.parse(fs.readFileSync(file, 'utf8'));
           config.expo.ios.infoPlist = config.expo.ios.infoPlist || {};
           config.expo.ios.infoPlist.TSLocationManagerLicense = process.env.TRANSISTOR_IOS_LICENSE;
-          fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\\n');
+          fs.writeFileSync(file, JSON.stringify(config, null, 2));
           NODE
 
       - name: Genera il progetto iOS
