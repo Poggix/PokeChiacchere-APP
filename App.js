@@ -3761,7 +3761,6 @@ export default function App() {
 
   async function enablePartnerLocationSharing() {
     try {
-    try {
       // Non interrompere un tracciamento già attivo quando l'app torna in primo piano:
       // stop/start ripetuti possono creare finestre senza aggiornamenti in background.
       const registered = await TaskManager.isTaskRegisteredAsync(PARTNER_LOCATION_TASK);
