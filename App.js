@@ -1369,67 +1369,120 @@ export default function App() {
   }
 
   async function saveSale() {
-    const product = String(form.product || '').trim();
     const first = String(form.first_name || '').trim();
     const last = String(form.last_name || '').trim();
-    const quantity = num(form.quantity);
-    const price = num(form.unit_price);
-    const total = quantity * price;
-    const fifoCost = getFifoSaleCost(
-      product,
-      quantity,
-      editing?.table === 'sales' ? editing.id : null
-    );
-    const productCost = fifoCost.totalCost;
-    const availableStock = fifoCost.available;
+    const customer = [first, last].filter(Boolean).join(' ');
+    const extraItems = Array.isArray(form.order_items) ? form.order_items : [];
+    const items = [
+      { product: String(form.product || '').trim(), quantity: num(form.quantity), price: num(form.unit_price) },
+      ...extraItems.map((item) => ({
+        product: String(item.product || '').trim(),
+        quantity: num(item.quantity),
+        price: num(item.unit_price),
+      })),
+    ].filter((item) => item.product || item.quantity || item.price);
 
-    if (!product || quantity <= 0 || price < 0) {
-      Alert.alert('Dati mancanti', 'Controlla prodotto, quantità e prezzo.');
+    if (!items.length || items.some((item) => !item.product || item.quantity <= 0 || item.price < 0)) {
+      Alert.alert('Dati mancanti', 'Per ogni prodotto inserisci prodotto, quantità e prezzo unitario.');
       return;
     }
-    if (quantity > availableStock + 0.000001) {
+
+    const prepared = items.map((item) => {
+      const fifo = getFifoSaleCost(item.product, item.quantity, editing?.table === 'sales' ? editing.id : null);
+      return { ...item, total: item.quantity * item.price, fifo };
+    });
+
+    const insufficient = prepared.find((item) => item.quantity > item.fifo.available + 0.000001);
+    if (insufficient) {
       Alert.alert(
         'Giacenza insufficiente',
-        `Hai ${availableStock.toLocaleString('it-IT')} pezzi disponibili di "${product}", ma stai registrando una vendita di ${quantity.toLocaleString('it-IT')}. Registra prima gli acquisti mancanti o correggi la quantità.`
+        `Hai ${insufficient.fifo.available.toLocaleString('it-IT')} pezzi disponibili di "${insufficient.product}", ma stai registrando una vendita di ${insufficient.quantity.toLocaleString('it-IT')}.`
       );
       return;
     }
 
+    // I costi inseriti nella testata sono costi complessivi dell'ordine:
+    // vengono ripartiti tra le righe in proporzione al valore di ciascun prodotto.
+    const orderTotal = prepared.reduce((sum, item) => sum + item.total, 0);
+    const feesTotal = num(form.fees);
+    const shippingTotal = num(form.shipping_cost);
+    const otherCostsTotal = num(form.other_costs);
+    const allocated = (amount, item) => orderTotal > 0 ? amount * item.total / orderTotal : amount / prepared.length;
+
     setLoading(true);
     try {
-      await addCatalog('products', product);
-
-      const customer = [first, last].filter(Boolean).join(' ');
+      for (const item of prepared) await addCatalog('products', item.product);
       if (customer) await addCatalog('customers', customer);
 
-      const data = {
+      const common = {
         sale_date: toDatabaseDate(form.date),
         order_number: form.order_number || '',
         customer_name: customer,
         customer_first_name: first || null,
         customer_last_name: last || null,
-        product,
-        quantity,
-        sale_unit_price: price,
-        unit_price: price,
-        total_sale: total,
-        tiktok_fees: num(form.fees),
-        shipping_cost: num(form.shipping_cost),
-        other_costs: num(form.other_costs),
-        purchase_unit_cost: quantity > 0 ? productCost / quantity : 0,
-        product_cost: productCost,
-        net_profit:
-          total -
-          num(form.fees) -
-          num(form.shipping_cost) -
-          num(form.other_costs) -
-          productCost,
-        flat_tax: total * 0.02,
       };
 
-      await saveRecord('sales', data);
+      if (editing?.table === 'sales' && editing?.id) {
+        const item = prepared[0];
+        const fees = feesTotal;
+        const shipping = shippingTotal;
+        const other = otherCostsTotal;
+        await saveRecord('sales', {
+          ...common,
+          product: item.product,
+          quantity: item.quantity,
+          sale_unit_price: item.price,
+          unit_price: item.price,
+          total_sale: item.total,
+          tiktok_fees: fees,
+          shipping_cost: shipping,
+          other_costs: other,
+          purchase_unit_cost: item.quantity > 0 ? item.fifo.totalCost / item.quantity : 0,
+          product_cost: item.fifo.totalCost,
+          net_profit: item.total - fees - shipping - other - item.fifo.totalCost,
+          flat_tax: item.total * 0.02,
+        });
+        return;
+      }
+
+      const rows = prepared.map((item) => {
+        const fees = allocated(feesTotal, item);
+        const shipping = allocated(shippingTotal, item);
+        const other = allocated(otherCostsTotal, item);
+        return {
+          ...common,
+          product: item.product,
+          quantity: item.quantity,
+          sale_unit_price: item.price,
+          unit_price: item.price,
+          total_sale: item.total,
+          tiktok_fees: fees,
+          shipping_cost: shipping,
+          other_costs: other,
+          purchase_unit_cost: item.quantity > 0 ? item.fifo.totalCost / item.quantity : 0,
+          product_cost: item.fifo.totalCost,
+          net_profit: item.total - fees - shipping - other - item.fifo.totalCost,
+          flat_tax: item.total * 0.02,
+          created_by: session?.user?.id,
+        };
+      });
+
+      await api('/rest/v1/sales', token, {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(rows),
+      });
+      rows.forEach((row) => sendAutomaticPartnerNotification('sales', row));
+      setEditing(null);
+      setForm({});
+      await loadData();
+      setPage('sales');
+      Alert.alert('Salvato', prepared.length > 1
+        ? `Ordine salvato con ${prepared.length} prodotti.`
+        : 'Registrazione salvata.');
     } catch (e) {
       Alert.alert('Errore vendita', e.message);
+    } finally {
       setLoading(false);
     }
   }
@@ -2303,6 +2356,56 @@ export default function App() {
             onChangeText={(v) => change('unit_price', v)}
             keyboardType="decimal-pad"
           />
+          {Array.isArray(form.order_items) && form.order_items.map((item, index) => (
+            <View key={`order-item-${index}`} style={[s.summary, { marginTop: 10 }]}>
+              <Text style={s.sectionTitle}>PRODOTTO AGGIUNTIVO {index + 1}</Text>
+              <Field
+                label="Prodotto"
+                value={item.product}
+                onChangeText={(v) => setForm((old) => ({
+                  ...old,
+                  order_items: old.order_items.map((line, i) => i === index ? { ...line, product: v } : line),
+                }))}
+                placeholder="Nome prodotto"
+              />
+              <Field
+                label="Quantità"
+                value={item.quantity}
+                onChangeText={(v) => setForm((old) => ({
+                  ...old,
+                  order_items: old.order_items.map((line, i) => i === index ? { ...line, quantity: v } : line),
+                }))}
+                keyboardType="decimal-pad"
+              />
+              <Field
+                label="Prezzo unitario (€)"
+                value={item.unit_price}
+                onChangeText={(v) => setForm((old) => ({
+                  ...old,
+                  order_items: old.order_items.map((line, i) => i === index ? { ...line, unit_price: v } : line),
+                }))}
+                keyboardType="decimal-pad"
+              />
+              <Button
+                title="Rimuovi prodotto"
+                type="danger"
+                onPress={() => setForm((old) => ({
+                  ...old,
+                  order_items: old.order_items.filter((_, i) => i !== index),
+                }))}
+              />
+            </View>
+          ))}
+          {!editing && (
+            <Button
+              title="+ Aggiungi un altro prodotto"
+              type="secondary"
+              onPress={() => setForm((old) => ({
+                ...old,
+                order_items: [...(old.order_items || []), { product: '', quantity: '1', unit_price: '0' }],
+              }))}
+            />
+          )}
           <Field
             label={`Commissioni TikTok (€) — ${tiktokFeePercent}%`}
             value={form.fees}
