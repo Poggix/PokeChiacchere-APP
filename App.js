@@ -2387,17 +2387,19 @@ export default function App() {
                     </TouchableOpacity>
                   )}
                 </View>
-                {index === 0
-                  ? dropdown('Prodotto', 'product', 'product', form.product, 'Scegli o scrivi un prodotto')
-                  : dropdown('Prodotto', 'product', `order_items.${index - 1}.product`, item.product, 'Scegli o scrivi un prodotto')}
-                {(() => {
-                  const catalogProduct = (records.products || []).find((row) => String(row.name || '').toLowerCase() === String(item.product || '').toLowerCase());
-                  return catalogProduct?.photo_url ? (
-                    <View style={{ marginTop: 8, marginBottom: 8 }}>
-                      <Image source={{ uri: catalogProduct.photo_url }} style={{ width: 88, height: 88, borderRadius: 10, backgroundColor: C.card }} resizeMode="cover" />
-                    </View>
-                  ) : null;
-                })()}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    {index === 0
+                      ? dropdown('Prodotto', 'product', 'product', form.product, 'Scegli o scrivi un prodotto')
+                      : dropdown('Prodotto', 'product', `order_items.${index - 1}.product`, item.product, 'Scegli o scrivi un prodotto')}
+                  </View>
+                  {(() => {
+                    const catalogProduct = (records.products || []).find((row) => String(row.name || '').toLowerCase() === String(item.product || '').toLowerCase());
+                    return catalogProduct?.photo_url ? (
+                      <Image source={{ uri: catalogProduct.photo_url }} style={{ width: 64, height: 64, borderRadius: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55' }} resizeMode="cover" />
+                    ) : null;
+                  })()}
+                </View>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 0.7 }}>
                     <Field label="Quantità" value={item.quantity} onChangeText={(v) => index === 0 ? change('quantity', v) : updateExtra(index - 1, 'quantity', v)} keyboardType="decimal-pad" />
