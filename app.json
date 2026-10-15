@@ -15,16 +15,12 @@
           "isIosBackgroundLocationEnabled": true
         }
       ],
-      "./plugins/withPokeLocationAppDelegate",
-      [
-        "react-native-background-geolocation",
-        {}
-      ]
+      "./plugins/withPokeLocationAppDelegate"
     ],
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
       "icon": "./assets/icon.png",
-      "buildNumber": "18",
+      "buildNumber": "19",
       "entitlements": {
         "aps-environment": "development"
       },
@@ -36,7 +32,6 @@
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "PokeChiacchere usa la posizione sempre per condividere gli spostamenti con il socio autorizzato.",
         "NSLocationWhenInUseUsageDescription": "PokeChiacchere usa la posizione per mostrare e condividere la posizione.",
-        "NSMotionUsageDescription": "PokeChiacchere usa il movimento per rilevare gli spostamenti e ottimizzare il tracciamento.",
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.transistorsoft.fetch",
           "com.transistorsoft.customtask"
