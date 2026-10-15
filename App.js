@@ -2854,19 +2854,23 @@ export default function App() {
         ),
       0
     );
-    const profit = history.reduce(
-      (sum, sale) =>
-        sum +
-        num(
-          sale.net_profit ??
-            num(sale.total_sale) -
-              num(sale.product_cost) -
-              num(sale.tiktok_fees) -
-              num(sale.shipping_cost) -
-              num(sale.other_costs)
-        ),
-      0
-    );
+    const profit = history.reduce((sum, sale) => {
+      const saleTotal = num(
+        sale.total_sale ??
+          num(sale.quantity) * num(sale.sale_unit_price ?? sale.unit_price)
+      );
+      const profitBeforeTax = num(
+        sale.net_profit ??
+          saleTotal -
+            num(sale.product_cost) -
+            num(sale.tiktok_fees) -
+            num(sale.shipping_cost) -
+            num(sale.other_costs)
+      );
+      // net_profit è salvato prima della tassa: sottraiamo la tassa anche nello storico cliente.
+      const tax = num(sale.flat_tax ?? saleTotal * 0.02);
+      return sum + profitBeforeTax - tax;
+    }, 0);
     return (
       <>
         {header('Scheda cliente', 'Anagrafica, storico ordini e riepilogo')}
