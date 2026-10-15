@@ -2304,7 +2304,7 @@ export default function App() {
             keyboardType="decimal-pad"
           />
           <Field
-            label={`Commissioni TikTok (€) — ${tiktokFeePercent}%`
+            label={`Commissioni TikTok (€) — ${tiktokFeePercent}%`}
             value={form.fees}
             onChangeText={(v) => change('fees', v)}
             keyboardType="decimal-pad"
