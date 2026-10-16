@@ -2898,7 +2898,7 @@ export default function App() {
       };
       const results = await Promise.all([
         fetchAllRows('/rest/v1/sales?select=id,order_number,customer_name,customer_first_name,customer_last_name'),
-        fetchAllRows('/rest/v1/customers?select=id,name,tiktok_username'),
+        fetchAllRows('/rest/v1/customers?select=id,name,tiktok_username,tiktok_user_id,tiktok_sec_uid,tiktok_avatar_url,tiktok_last_checked_at'),
       ]);
       const sales = results[0];
       const customers = results[1];
@@ -2954,48 +2954,135 @@ export default function App() {
       let updated = 0;
       let alreadyCorrect = 0;
       let conflictedCustomers = 0;
+      let verifiedProfiles = 0;
+      let lookupErrors = 0;
+      let identityMismatches = 0;
       const writeErrors = [];
+      const lookupErrorMessages = [];
+      const lookupTikTokProfile = async (username) => {
+        const response = await fetch(URL + '/functions/v1/tiktok-profile-lookup', {
+          method: 'POST',
+          headers: {
+            apikey: KEY,
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username }),
+        });
+        let payload = null;
+        try { payload = await response.json(); } catch (_) {}
+        if (!response.ok || !payload || !payload.ok || !payload.user) {
+          throw new Error(payload && payload.error ? payload.error : 'La funzione TikTok non è disponibile (HTTP ' + response.status + ').');
+        }
+        return payload;
+      };
+
+      // Una sola ricerca per cliente, solo se non abbiamo ancora l'ID stabile
+      // o se il CSV presenta uno username diverso. Non vengono mai modificate le vendite.
       for (const planned of plannedByCustomer.values()) {
         if (planned.usernames.size !== 1) {
           conflictedCustomers += 1;
           continue;
         }
-        const username = Array.from(planned.usernames)[0];
-        if (clean(planned.customer.tiktok_username).replace(/^@/, '').toLowerCase() === username) {
+        const importedUsername = Array.from(planned.usernames)[0];
+        const customer = planned.customer;
+        const currentUsername = clean(customer.tiktok_username).replace(/^@/, '');
+        const sameUsername = currentUsername.toLowerCase() === importedUsername.toLowerCase();
+        const currentUserId = clean(customer.tiktok_user_id);
+        const currentSecUid = clean(customer.tiktok_sec_uid);
+        if (sameUsername && currentUserId && currentSecUid) {
           alreadyCorrect += 1;
           continue;
         }
+
+        let profile = null;
         try {
-          await api('/rest/v1/customers?id=eq.' + encodeURIComponent(planned.customer.id), token, {
+          const lookup = await lookupTikTokProfile(importedUsername);
+          profile = lookup.user;
+        } catch (error) {
+          lookupErrors += 1;
+          if (lookupErrorMessages.length < 3) lookupErrorMessages.push(String(error && error.message ? error.message : error));
+          // Se esiste già un ID e lo username è cambiato, non sovrascrivere senza verificarne l'identità.
+          if (currentUserId && !sameUsername) continue;
+          // In assenza di identità salvata manteniamo il dato ricevuto dal CSV,
+          // ma non lo contrassegniamo come verificato.
+          if (sameUsername) {
+            alreadyCorrect += 1;
+            continue;
+          }
+        }
+
+        let patch = {};
+        if (profile) {
+          const foundId = clean(profile.id);
+          const foundSecUid = clean(profile.sec_uid);
+          const canonicalUsername = clean(profile.unique_id).replace(/^@/, '') || importedUsername;
+          if (!foundId || !foundSecUid) {
+            lookupErrors += 1;
+            if (currentUserId && !sameUsername) continue;
+            if (sameUsername) {
+              alreadyCorrect += 1;
+              continue;
+            }
+            patch = { tiktok_username: importedUsername };
+          } else if (currentUserId && currentUserId !== foundId) {
+            // Username diverso ma ID differente: probabile profilo diverso; preserva quello esistente.
+            identityMismatches += 1;
+            continue;
+          } else {
+            verifiedProfiles += 1;
+            patch = {
+              tiktok_username: canonicalUsername,
+              tiktok_user_id: foundId,
+              tiktok_sec_uid: foundSecUid,
+              tiktok_avatar_url: clean(profile.avatar_larger || profile.avatar_medium || profile.avatar_thumb) || null,
+              tiktok_last_checked_at: clean(lookup.checked_at) || new Date().toISOString(),
+            };
+          }
+        } else {
+          patch = { tiktok_username: importedUsername };
+        }
+
+        try {
+          await api('/rest/v1/customers?id=eq.' + encodeURIComponent(customer.id), token, {
             method: 'PATCH',
             headers: { Prefer: 'return=minimal' },
-            body: JSON.stringify({ tiktok_username: username }),
+            body: JSON.stringify(patch),
           });
           updated += 1;
         } catch (error) {
-          writeErrors.push(planned.customer.name + ': ' + (error.message || 'errore'));
+          writeErrors.push(customer.name + ': ' + (error && error.message ? error.message : 'errore'));
         }
       }
       await loadData();
       let summary = 'Clienti aggiornati: ' + updated +
+        '\nProfili verificati e ID salvati: ' + verifiedProfiles +
         '\nGià aggiornati: ' + alreadyCorrect +
         '\nOrdini del file senza vendita nell’app: ' + unmatchedOrders +
         '\nOrdini ambigui saltati: ' + ambiguousOrders +
         '\nClienti non presenti o duplicati nell’archivio: ' + customersNotFound +
         '\nOrdini con username discordanti: ' + conflictedOrders +
         '\nClienti con username discordanti: ' + conflictedCustomers +
+        '\nNuovi username con ID diverso: ' + identityMismatches +
+        '\nVerifiche profilo non riuscite: ' + lookupErrors +
         '\nUsername mascherati/non validi ignorati: ' + maskedUsernames;
+      if (lookupErrorMessages.length) {
+        summary += '\n\nDettaglio verifica: ' + lookupErrorMessages[0];
+        if (lookupErrorMessages.some((message) => /funzione TikTok non è disponibile|HTTP 404/i.test(message))) {
+          summary += '\n\nPubblica prima la funzione Supabase tiktok-profile-lookup dal repository.';
+        }
+      }
       if (rowsWithoutData) summary += '\nRighe vuote/incomplete ignorate: ' + rowsWithoutData;
       if (writeErrors.length) {
         summary += '\n\nErrori di salvataggio: ' + writeErrors.length + '\n' + writeErrors.slice(0, 3).join('\n');
-        if (writeErrors.some((line) => /tiktok_username|column .*does not exist/i.test(line))) {
+        if (writeErrors.some((line) => /tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(line))) {
           summary += '\n\nEsegui prima la migrazione SQL per aggiungere la colonna tiktok_username in Supabase.';
         }
       }
       Alert.alert('Importazione completata', summary);
     } catch (error) {
       const message = String(error && error.message ? error.message : error || 'Errore sconosciuto');
-      if (/tiktok_username|column .*does not exist/i.test(message)) {
+      if (/tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(message)) {
         Alert.alert('Configurazione Supabase mancante', 'Prima di importare, esegui in Supabase la migrazione supabase/migrations/20261016_customer_tiktok_username.sql. Dettaglio: ' + message);
       } else {
         Alert.alert('Importazione non riuscita', message);
@@ -3274,18 +3361,30 @@ export default function App() {
     if (!selectedCustomer?.id) return;
     setLoading(true);
     try {
+      const nextTikTokUsername = String(form.tiktok_username || '').trim().replace(/^@/, '');
+      const previousTikTokUsername = String(selectedCustomer.tiktok_username || '').trim().replace(/^@/, '');
+      const usernameWasChanged = nextTikTokUsername.toLowerCase() !== previousTikTokUsername.toLowerCase();
+      const customerPatch = {
+        phone: form.phone || '',
+        email: form.email || '',
+        notes: form.customer_notes || '',
+        tiktok_username: nextTikTokUsername,
+      };
+      // Se lo username viene cambiato manualmente, l'identità non è stata verificata:
+      // elimina gli identificativi precedenti per consentire una verifica alla prossima importazione.
+      if (usernameWasChanged) {
+        customerPatch.tiktok_user_id = null;
+        customerPatch.tiktok_sec_uid = null;
+        customerPatch.tiktok_avatar_url = null;
+        customerPatch.tiktok_last_checked_at = null;
+      }
       await api(
         `/rest/v1/customers?id=eq.${encodeURIComponent(selectedCustomer.id)}`,
         token,
         {
           method: 'PATCH',
           headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            phone: form.phone || '',
-            email: form.email || '',
-            notes: form.customer_notes || '',
-            tiktok_username: String(form.tiktok_username || '').trim().replace(/^@/, ''),
-          }),
+          body: JSON.stringify(customerPatch),
         }
       );
       await loadData();
@@ -3294,7 +3393,13 @@ export default function App() {
         phone: form.phone || '',
         email: form.email || '',
         notes: form.customer_notes || '',
-        tiktok_username: String(form.tiktok_username || '').trim().replace(/^@/, ''),
+        tiktok_username: nextTikTokUsername,
+        ...(usernameWasChanged ? {
+          tiktok_user_id: null,
+          tiktok_sec_uid: null,
+          tiktok_avatar_url: null,
+          tiktok_last_checked_at: null,
+        } : {}),
       };
       setSelectedCustomer(updated);
       Alert.alert(
@@ -3377,17 +3482,28 @@ export default function App() {
           onPress={() => setPage('customers')}
         />
         <View style={[s.customerHero, { borderColor: '#C39BFF' }]}>
-          <View style={s.customerAvatar}>
-            <Text style={s.customerAvatarText}>
-              {String(customerName || '?')
-                .trim()
-                .split(/\s+/)
-                .slice(0, 2)
-                .map((x) => x[0] || '')
-                .join('')
-                .toUpperCase()}
-            </Text>
-          </View>
+          {selectedCustomer.tiktok_avatar_url ? (
+            <Image
+              source={{ uri: selectedCustomer.tiktok_avatar_url }}
+              style={[s.customerAvatar, { overflow: 'hidden' }]}
+              resizeMode="cover"
+              onError={() => {
+                // L'avatar TikTok è remoto e può scadere: il nominativo resta sempre visibile.
+              }}
+            />
+          ) : (
+            <View style={s.customerAvatar}>
+              <Text style={s.customerAvatarText}>
+                {String(customerName || '?')
+                  .trim()
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((x) => x[0] || '')
+                  .join('')
+                  .toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={s.customerName}>{customerName}</Text>
           <Text style={s.mutedText}>Cliente registrato nell’archivio</Text>
           <View style={s.customerStats}>
