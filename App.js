@@ -3429,12 +3429,24 @@ export default function App() {
       await Linking.openURL(url);
     } catch (error) {
       const message = String(error && error.message ? error.message : error || 'Errore sconosciuto');
-      if (/tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(message)) {
+      // La verifica arricchisce avatar e identificativi, ma non deve bloccare l'apertura
+      // del profilo quando TikTok restituisce dati incompleti. Usa lo username salvato.
+      if (savedUsername) {
+        try {
+          await Linking.openURL('https://www.tiktok.com/@' + encodeURIComponent(savedUsername));
+          Alert.alert(
+            'Profilo aperto senza verifica',
+            'TikTok non ha restituito tutti i dati del profilo, quindi non ho aggiornato foto e identificativi. Ho aperto il profilo usando lo username salvato: @' + savedUsername + '.'
+          );
+        } catch (_) {
+          Alert.alert('Impossibile aprire il profilo', 'Non sono riuscito ad aprire il profilo TikTok @' + savedUsername + '. Verifica che lo username sia corretto.');
+        }
+      } else if (/tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(message)) {
         Alert.alert('Configurazione Supabase mancante', 'Esegui la migrazione supabase/migrations/20261016_customer_tiktok_identity.sql e distribuisci la versione aggiornata della Edge Function tiktok-profile-lookup.');
-      } else if (/functions\/v1\/tiktok-profile-lookup|JWT|not found|404/i.test(message)) {
+      } else if (/functions\\/v1\\/tiktok-profile-lookup|JWT|not found|404/i.test(message)) {
         Alert.alert('Verifica TikTok non disponibile', 'Distribuisci la versione aggiornata di supabase/functions/tiktok-profile-lookup/index.ts in Supabase Edge Functions e riprova.');
       } else {
-        Alert.alert('Impossibile verificare il profilo', message + '\n\nNon ho aperto il vecchio link perché potrebbe non essere più corretto.');
+        Alert.alert('Impossibile verificare il profilo', message);
       }
     } finally {
       setTiktokProfileOpening(false);
