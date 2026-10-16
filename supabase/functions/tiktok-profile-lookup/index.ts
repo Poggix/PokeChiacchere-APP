@@ -169,6 +169,62 @@ async function lookupByUsername(username: string) {
   return profile;
 }
 
+
+async function lookupByFetchLayer(apiKey: string, username: string | null, secUid: string, expectedId: string) {
+  // FetchLayer is a fallback only: the regular TikTok lookup is attempted first.
+  // Send exactly one identity parameter, as required by the API documentation.
+  const identity = secUid
+    ? { key: "secUid", value: secUid }
+    : (/^\\d+$/.test(expectedId) ? { key: "userId", value: expectedId } : null)
+      || (username ? { key: "username", value: username } : null);
+
+  if (!identity) throw new Error("FetchLayer non può essere usato: manca uno username o un identificativo TikTok valido.");
+
+  const response = await fetch("https://api.fetchlayer.dev/tiktok/user-profile", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: JSON.stringify({ [identity.key]: identity.value }),
+    signal: AbortSignal.timeout(25000),
+  });
+
+  const responseText = await response.text();
+  let payload: Record<string, any>;
+  try {
+    payload = JSON.parse(responseText);
+  } catch {
+    throw new Error("FetchLayer ha restituito una risposta non JSON (HTTP " + response.status + ").");
+  }
+
+  if (!response.ok) {
+    const apiMessage = String(payload?.error || payload?.message || payload?.detail || "");
+    throw new Error("FetchLayer ha risposto con HTTP " + response.status + (apiMessage ? ": " + apiMessage : "."));
+  }
+
+  const rawProfile = payload?.profile || payload?.data?.profile || payload?.result?.profile;
+  if (!rawProfile || typeof rawProfile !== "object") {
+    throw new Error("FetchLayer non ha restituito il campo profile atteso.");
+  }
+
+  const profile = normalizeProfile(rawProfile);
+  if (!profile.id || !profile.sec_uid || !profile.unique_id) {
+    throw new Error("FetchLayer ha restituito un profilo senza tutti gli identificativi necessari.");
+  }
+
+  // Never open/update a different account if the persistent identity does not match.
+  if (secUid && profile.sec_uid !== secUid) {
+    throw new Error("FetchLayer ha restituito un secUid diverso da quello salvato. Profilo rifiutato.");
+  }
+  if (expectedId && profile.id !== expectedId) {
+    throw new Error("FetchLayer ha restituito un ID numerico diverso da quello salvato. Profilo rifiutato.");
+  }
+
+  return profile;
+}
+
 serve(async (req: Request) => {
   const requestId = crypto.randomUUID();
   console.info("[tiktok-profile-lookup] request_received", JSON.stringify({
@@ -250,12 +306,52 @@ serve(async (req: Request) => {
       lookup_method: lookupMethod,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const primaryMessage = error instanceof Error ? error.message : String(error);
+    const apiKey = Deno.env.get("FETCHLAYER_API_KEY");
+
+    // Only spend a FetchLayer request after the existing TikTok lookup has failed.
+    if (apiKey) {
+      try {
+        const fallbackProfile = await lookupByFetchLayer(apiKey, username, secUid, expectedId);
+        const lookupMethod = "fetchlayer_" + (secUid ? "sec_uid" : (/^\\d+$/.test(expectedId) ? "user_id" : "username"));
+        console.info("[tiktok-profile-lookup] lookup_succeeded", JSON.stringify({
+          requestId,
+          lookupMethod,
+          fallback: true,
+          primaryError: primaryMessage,
+        }));
+        return json({
+          ok: true,
+          request_id: requestId,
+          user: {
+            ...fallbackProfile,
+            profile_url: "https://www.tiktok.com/@" + encodeURIComponent(fallbackProfile.unique_id),
+          },
+          checked_at: new Date().toISOString(),
+          lookup_method: lookupMethod,
+        });
+      } catch (fallbackError) {
+        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        console.error("[tiktok-profile-lookup] fetchlayer_fallback_failed", JSON.stringify({
+          requestId,
+          primaryError: primaryMessage,
+          fallbackError: fallbackMessage,
+        }));
+        return json({
+          ok: false,
+          error: primaryMessage + " Fallback FetchLayer non riuscito: " + fallbackMessage,
+          retryable: true,
+          request_id: requestId,
+        }, 502);
+      }
+    }
+
     console.error("[tiktok-profile-lookup] lookup_failed", JSON.stringify({
       requestId,
       lookupMethod: secUid ? "sec_uid" : "username",
-      error: message,
+      error: primaryMessage,
+      fetchLayerConfigured: false,
     }));
-    return json({ ok: false, error: message, retryable: true, request_id: requestId }, 502);
+    return json({ ok: false, error: primaryMessage, retryable: true, request_id: requestId }, 502);
   }
 });
