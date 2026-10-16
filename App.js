@@ -309,7 +309,7 @@ function DropDown({ label, value, onPress, hint }) {
   );
 }
 
-function Card({ title, value, color = C.cyan, subtitle, valueFormat = 'money' }) {
+function Card({ title, value, color = C.cyan, subtitle, subtitleColor, valueFormat = 'money' }) {
   const isProfitMetric = /utile|profit/i.test(String(title || ''));
   const accentColor = isProfitMetric && valueFormat !== 'text' ? profitColor(value) : color;
   const displayValue =
@@ -326,7 +326,7 @@ function Card({ title, value, color = C.cyan, subtitle, valueFormat = 'money' })
       <View style={[s.metricLine, { backgroundColor: accentColor }]} />
       <Text style={s.metricLabel}>{title}</Text>
       <Text style={[s.metricValue, isProfitMetric && valueFormat !== 'text' ? { color: accentColor } : null]}>{displayValue}</Text>
-      {!!subtitle && <Text style={s.mutedSmall}>{subtitle}</Text>}
+      {!!subtitle && <Text style={[s.mutedSmall, subtitleColor ? { color: subtitleColor } : null]}>{subtitle}</Text>}
     </View>
   );
 }
@@ -2075,6 +2075,7 @@ export default function App() {
             value={topProfitProduct?.product || 'Nessun dato'}
             valueFormat="text"
             color={profitColor(topProfitProduct?.profit ?? 0)}
+            subtitleColor={topProfitProduct ? profitColor(topProfitProduct.profit) : C.muted}
             subtitle={topProfitProduct
               ? `Utile netto totale: ${money(topProfitProduct.profit)}`
               : 'Registra una vendita per vedere il prodotto più redditizio'}
