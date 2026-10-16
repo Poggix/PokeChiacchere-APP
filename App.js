@@ -988,17 +988,7 @@ export default function App() {
         setProfileLastName(first?.last_name || session.user.user_metadata?.last_name || '');
         setProfilePhotoUrl(first?.avatar_url || session.user.user_metadata?.avatar_url || '');
       }
-      await api('/rest/v1/member_presence?on_conflict=user_id', token, {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({
-          user_id: session.user.id,
-          email: session.user.email || '',
-          last_seen_at: new Date().toISOString(),
-          is_active: true,
-          app_version: INSTALLED_APP_VERSION,
-        }),
-      });
+      // Il caricamento della schermata aggiorna i dati, non l'ultimo accesso effettivo.
       const presenceRows = await api('/rest/v1/member_presence?select=*&order=last_seen_at.desc', token);
       const profileList = Array.isArray(profileRows) ? profileRows : [];
       const presenceList = Array.isArray(presenceRows) ? presenceRows : [];
@@ -1023,6 +1013,24 @@ export default function App() {
     } finally {
       setPresenceLoading(false);
     }
+  }, [token, session?.user?.id]);
+
+  // Registra l'apertura dell'app una volta per avvio/sessione, senza farla avanzare
+  // per i polling, i refresh della schermata o i risvegli del tracker GPS.
+  useEffect(() => {
+    if (!token || !session?.user?.id) return;
+    api('/rest/v1/member_presence?on_conflict=user_id', token, {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({
+        user_id: session.user.id,
+        email: session.user.email || '',
+        last_opened_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+        is_active: true,
+        app_version: INSTALLED_APP_VERSION,
+      }),
+    }).catch((error) => console.warn('Registrazione apertura app non riuscita:', error?.message || error));
   }, [token, session?.user?.id]);
 
   useEffect(() => {
@@ -4611,7 +4619,7 @@ export default function App() {
         </View>
         <View style={s.panel}>
           <Text style={s.panelTitle}>Attività soci</Text>
-          <Text style={s.mutedSmall}>Presenza aggiornata automaticamente quando l'app è aperta. Ultimo accesso mostrato per ogni account.</Text>
+          <Text style={s.mutedSmall}>L'ultima apertura viene registrata separatamente dagli aggiornamenti GPS e dai controlli automatici di presenza.</Text>
           <Button title={presenceLoading ? 'Aggiornamento...' : 'Aggiorna attività soci'} type="secondary" onPress={loadProfilesAndPresence} />
           {profiles.map((p) => {
             const isMe = p.user_id === session?.user?.id;
@@ -4626,7 +4634,7 @@ export default function App() {
                     <Text style={s.panelTitle}>{displayName}{isMe ? ' (tu)' : ''}</Text>
                     {!!presence?.app_version && <Text style={{ color: C.muted, fontSize: 11, fontWeight: '700' }}>v{presence.app_version}</Text>}
                   </View>
-                  <Text style={s.mutedSmall}>{active ? '● Attivo ora' : presence?.last_seen_at ? 'Ultimo accesso: ' + new Date(presence.last_seen_at).toLocaleString('it-IT') : 'Nessun accesso registrato'}</Text>
+                  <Text style={s.mutedSmall}>{active ? '● App aperta ora' : (presence?.last_opened_at || presence?.last_seen_at) ? 'Ultima apertura: ' + new Date(presence.last_opened_at || presence.last_seen_at).toLocaleString('it-IT') : 'Nessuna apertura registrata'}</Text>
                 </View>
                 <View
                   accessibilityLabel={active ? 'Socio attivo' : 'Socio non attivo'}
