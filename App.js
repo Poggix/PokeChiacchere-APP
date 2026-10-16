@@ -3443,7 +3443,7 @@ export default function App() {
         }
       } else if (/tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(message)) {
         Alert.alert('Configurazione Supabase mancante', 'Esegui la migrazione supabase/migrations/20261016_customer_tiktok_identity.sql e distribuisci la versione aggiornata della Edge Function tiktok-profile-lookup.');
-      } else if (/functions\\/v1\\/tiktok-profile-lookup|JWT|not found|404/i.test(message)) {
+      } else if (message.includes('/functions/v1/tiktok-profile-lookup') || /JWT|not found|404/i.test(message)) {
         Alert.alert('Verifica TikTok non disponibile', 'Distribuisci la versione aggiornata di supabase/functions/tiktok-profile-lookup/index.ts in Supabase Edge Functions e riprova.');
       } else {
         Alert.alert('Impossibile verificare il profilo', message);
