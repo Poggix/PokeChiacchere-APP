@@ -34,50 +34,90 @@ function normalizeProfile(user: Record<string, any>) {
 }
 
 async function lookupBySecUid(secUid: string, expectedId: string) {
-  // TikTok's web profile-detail endpoint accepts secUid. This is the important
-  // reverse lookup: it can return the current uniqueId even when the old username changed.
-  const endpoint = new URL("https://www.tiktok.com/api/user/detail/");
-  endpoint.searchParams.set("secUid", secUid);
-  endpoint.searchParams.set("uniqueId", "");
+  // TikTok's web endpoint is undocumented and can change its response format.
+  // Try both commonly observed parameter spellings and include the web app's aid.
+  const attempts = [
+    { secUid, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
+    { sec_uid: secUid, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
+  ];
+  let lastReason = "TikTok non ha restituito dati JSON leggibili.";
 
-  const response = await fetch(endpoint.toString(), {
-    method: "GET",
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-      "Accept": "application/json, text/plain, */*",
-      "Referer": "https://www.tiktok.com/",
-      "Accept-Language": "en-US,en;q=0.9,it;q=0.8",
-    },
-    signal: AbortSignal.timeout(15000),
-  });
+  for (const params of attempts) {
+    const endpoint = new URL("https://www.tiktok.com/api/user/detail/");
+    for (const [key, value] of Object.entries(params)) endpoint.searchParams.set(key, value);
 
-  if (!response.ok) {
-    throw new Error("TikTok non ha consentito la ricerca tramite ID (HTTP " + response.status + ").");
-  }
+    let response: Response;
+    try {
+      response = await fetch(endpoint.toString(), {
+        method: "GET",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "application/json, text/plain, */*",
+          "Referer": "https://www.tiktok.com/",
+          "Origin": "https://www.tiktok.com",
+          "Accept-Language": "en-US,en;q=0.9,it;q=0.8",
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (error) {
+      lastReason = error instanceof Error && error.name === "TimeoutError"
+        ? "TikTok non ha risposto entro 15 secondi."
+        : "Impossibile raggiungere l'endpoint pubblico di TikTok.";
+      continue;
+    }
 
-  const payload = await response.json().catch(() => null);
-  const rawUser = payload?.userInfo?.user
-    ?? payload?.data?.userInfo?.user
-    ?? payload?.user
-    ?? payload?.data?.user;
-  const profile = rawUser && typeof rawUser === "object" ? normalizeProfile(rawUser) : null;
+    if (!response.ok) {
+      lastReason = "TikTok ha risposto con HTTP " + response.status + " alla ricerca tramite ID.";
+      continue;
+    }
 
-  if (!profile?.id || !profile.sec_uid || !profile.unique_id) {
-    const code = payload?.statusCode ?? payload?.status_code ?? payload?.status_code;
-    const statusMessage = String(payload?.statusMsg || payload?.status_msg || "");
-    throw new Error(
-      "TikTok non ha restituito i dati completi per l'ID salvato" +
-      (code != null ? " (codice " + code + ")" : "") +
-      (statusMessage ? ": " + statusMessage : ".")
+    const contentType = response.headers.get("content-type") || "";
+    const text = await response.text();
+    let payload: Record<string, any> | null = null;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      lastReason = contentType.includes("text/html") || /<html|captcha|verify/i.test(text.slice(0, 500))
+        ? "TikTok ha restituito una pagina HTML o una verifica anti-bot invece dei dati del profilo."
+        : "TikTok ha restituito una risposta non JSON.";
+      continue;
+    }
+
+    const candidates = [
+      payload?.userInfo?.user,
+      payload?.data?.userInfo?.user,
+      payload?.user,
+      payload?.data?.user,
+      payload?.userInfo,
+      payload?.data?.userInfo,
+    ];
+    const rawUser = candidates.find((candidate) =>
+      candidate && typeof candidate === "object" &&
+      (candidate.id != null || candidate.secUid != null || candidate.sec_uid != null ||
+       candidate.uniqueId != null || candidate.unique_id != null)
     );
+    const profile = rawUser ? normalizeProfile(rawUser) : null;
+
+    if (!profile?.id || !profile.sec_uid || !profile.unique_id) {
+      const code = payload?.statusCode ?? payload?.status_code ?? payload?.status_code;
+      const statusMessage = String(payload?.statusMsg || payload?.status_msg || "");
+      const keys = Object.keys(payload || {}).slice(0, 12).join(", ");
+      lastReason = "TikTok non ha restituito username e identificativi completi per l'ID salvato" +
+        (code != null ? " (codice " + code + ")" : "") +
+        (statusMessage ? ": " + statusMessage : "") +
+        (keys ? ". Campi risposta: " + keys : ".");
+      continue;
+    }
+    if (profile.sec_uid !== secUid) {
+      throw new Error("L'identificativo restituito da TikTok non coincide con quello salvato: profilo non aggiornato.");
+    }
+    if (expectedId && profile.id !== expectedId) {
+      throw new Error("L'ID numerico del profilo restituito non coincide: profilo non aggiornato.");
+    }
+    return profile;
   }
-  if (profile.sec_uid !== secUid) {
-    throw new Error("L'identificativo restituito da TikTok non coincide con quello salvato: profilo non aggiornato.");
-  }
-  if (expectedId && profile.id !== expectedId) {
-    throw new Error("L'ID numerico del profilo restituito non coincide: profilo non aggiornato.");
-  }
-  return profile;
+
+  throw new Error(lastReason);
 }
 
 async function lookupByUsername(username: string) {
