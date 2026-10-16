@@ -378,6 +378,34 @@ export default function App() {
   const [partnerMapLocation, setPartnerMapLocation] = useState(null);
   const [partnerMapBusy, setPartnerMapBusy] = useState(false);
   const [partnerMapError, setPartnerMapError] = useState('');
+  const [backgroundRemovalProvider, setBackgroundRemovalProvider] = useState('poof');
+  const [backgroundProviderReady, setBackgroundProviderReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem('pokechiacchere_background_provider')
+      .then((savedProvider) => {
+        if (!active) return;
+        if (savedProvider === 'poof' || savedProvider === 'bgninja') {
+          setBackgroundRemovalProvider(savedProvider);
+        }
+      })
+      .catch((error) => {
+        console.warn('Impossibile recuperare il servizio di rimozione sfondo:', error?.message || error);
+      })
+      .finally(() => {
+        if (active) setBackgroundProviderReady(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!backgroundProviderReady) return;
+    AsyncStorage.setItem('pokechiacchere_background_provider', backgroundRemovalProvider)
+      .catch((error) => {
+        console.warn('Impossibile salvare il servizio di rimozione sfondo:', error?.message || error);
+      });
+  }, [backgroundRemovalProvider, backgroundProviderReady]);
 
   const [records, setRecords] = useState({
     sales: [],
@@ -1391,8 +1419,6 @@ export default function App() {
     setLoading(true);
     try {
       let sourceUri = form.photo_preview;
-      // L'API richiede un file locale multipart; se si sta modificando un prodotto
-      // già salvato, scarichiamo temporaneamente la foto dallo Storage.
       if (/^https?:\/\//i.test(sourceUri)) {
         const downloaded = await FileSystem.downloadAsync(
           sourceUri,
@@ -1400,37 +1426,53 @@ export default function App() {
         );
         sourceUri = downloaded.uri;
       }
-      const formData = new FormData();
-      formData.append('file', {
+
+      const body = new FormData();
+      body.append('file', {
         uri: sourceUri,
         name: 'product-photo.jpg',
         type: 'image/jpeg',
       });
-      formData.append('src', 'pokechiacchere');
-      const cutoutResponse = await fetch('https://bgninja.com/api/remove', {
-        method: 'POST',
-        body: formData,
-      });
+
+      let cutoutResponse;
+      const provider = backgroundRemovalProvider;
+      if (provider === 'poof') {
+        cutoutResponse = await fetch(`${URL}/functions/v1/remove-product-background`, {
+          method: 'POST',
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${token}`,
+          },
+          body,
+        });
+      } else {
+        body.append('src', 'pokechiacchere');
+        cutoutResponse = await fetch('https://bgninja.com/api/remove', {
+          method: 'POST',
+          body,
+        });
+      }
+
       if (!cutoutResponse.ok) {
         let detail = '';
         try {
           const errorBody = await cutoutResponse.json();
-          detail = errorBody.error || errorBody.detail || '';
+          detail = errorBody.error || errorBody.detail || errorBody.message || '';
         } catch (_) {}
-        if (cutoutResponse.status === 402) {
-          throw new Error('Hai raggiunto il limite gratuito di 10 scontorni giornalieri per indirizzo IP. Riprova domani.');
-        }
-        throw new Error(detail || ('Servizio di scontorno non disponibile (HTTP ' + cutoutResponse.status + '). Riprova tra poco.'));
+        throw new Error(detail || `${provider === 'poof' ? 'Poof' : 'BGNinja'} ha restituito un errore HTTP ${cutoutResponse.status}. Nessun passaggio automatico all'altro servizio è stato eseguito.`);
       }
+
       const pngBuffer = await cutoutResponse.arrayBuffer();
-      if (!pngBuffer || pngBuffer.byteLength < 100) throw new Error('Il servizio ha restituito un’immagine vuota.');
+      if (!pngBuffer || pngBuffer.byteLength < 100) {
+        throw new Error((provider === 'poof' ? 'Poof' : 'BGNinja') + ' ha restituito un’immagine vuota.');
+      }
       const localPng = FileSystem.cacheDirectory + 'product-cutout-' + Date.now() + '.png';
       await FileSystem.writeAsStringAsync(localPng, arrayBufferToBase64(pngBuffer), {
         encoding: FileSystem.EncodingType.Base64,
       });
       const publicUrl = await uploadProductPhoto(localPng, 'image/png');
       setForm((old) => ({ ...old, photo_url: publicUrl, photo_preview: localPng }));
-      Alert.alert('Sfondo rimosso', 'Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
+      Alert.alert('Sfondo rimosso', 'Risultato ottenuto con ' + (provider === 'poof' ? 'Poof' : 'BGNinja') + '. Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
     } catch (e) {
       Alert.alert('Impossibile rimuovere lo sfondo', e?.message || 'Controlla la connessione e riprova.');
     } finally {
@@ -2767,11 +2809,35 @@ export default function App() {
                 </View>
               )}
               <Button title="📷 Apri galleria e scegli foto" type="secondary" onPress={chooseProductPhoto} />
+              <View style={s.backgroundProviderWrap}>
+                <Text style={s.label}>Servizio per rimuovere lo sfondo</Text>
+                <View style={s.backgroundProviderLabels}>
+                  <TouchableOpacity onPress={() => setBackgroundRemovalProvider('bgninja')} style={s.backgroundProviderLabelSide}>
+                    <Text style={[s.backgroundProviderText, backgroundRemovalProvider === 'bgninja' && s.backgroundProviderTextActive]}>BGNinja</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setBackgroundRemovalProvider('poof')} style={s.backgroundProviderLabelSide}>
+                    <Text style={[s.backgroundProviderText, backgroundRemovalProvider === 'poof' && s.backgroundProviderTextActive]}>Poof</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: backgroundRemovalProvider === 'poof' }}
+                  accessibilityLabel={backgroundRemovalProvider === 'poof' ? 'Servizio selezionato: Poof' : 'Servizio selezionato: BGNinja'}
+                  onPress={() => setBackgroundRemovalProvider((current) => current === 'poof' ? 'bgninja' : 'poof')}
+                  style={s.backgroundProviderSwitch}>
+                  <View style={[s.backgroundProviderKnob, backgroundRemovalProvider === 'poof' ? s.backgroundProviderKnobRight : s.backgroundProviderKnobLeft]}>
+                    <View style={s.backgroundProviderDot} />
+                  </View>
+                </TouchableOpacity>
+                <Text style={s.mutedSmall}>
+                  Selezionato: {backgroundRemovalProvider === 'poof' ? 'Poof' : 'BGNinja'}. Il servizio scelto viene usato da solo; non c’è fallback automatico.
+                </Text>
+              </View>
               {form.photo_preview ? (
-                <Button title="✂️ Rimuovi sfondo automaticamente" type="secondary" onPress={removeProductBackground} />
+                <Button title={`✂️ Rimuovi sfondo con ${backgroundRemovalProvider === 'poof' ? 'Poof' : 'BGNinja'}`} type="secondary" onPress={removeProductBackground} />
               ) : null}
               <Text style={[s.mutedText, { marginTop: 6 }]}>
-                Lo scontorno usa BGNinja: gratis fino a 10 foto al giorno per indirizzo IP. Serve una connessione internet.
+                Poof usa la chiave configurata nei Secrets di Supabase. BGNinja ha i propri limiti gratuiti. Serve internet.
               </Text>
             </View>
           )}
@@ -4533,6 +4599,23 @@ export default function App() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  backgroundProviderWrap: { marginTop: 12, marginBottom: 8, gap: 7 },
+  backgroundProviderLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12 },
+  backgroundProviderLabelSide: { paddingVertical: 3 },
+  backgroundProviderSwitch: {
+    height: 28, borderRadius: 16, backgroundColor: C.panel2, borderWidth: 1,
+    borderColor: C.border, position: 'relative', justifyContent: 'center',
+  },
+  backgroundProviderText: { color: C.muted, fontSize: 12, fontWeight: '700' },
+  backgroundProviderTextActive: { color: C.white },
+  backgroundProviderKnob: {
+    position: 'absolute', top: 2, width: 22, height: 22, borderRadius: 12,
+    backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center',
+  },
+  backgroundProviderKnobLeft: { left: 3 },
+  backgroundProviderKnobRight: { right: 3 },
+  backgroundProviderDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.white },
+
   main: { flex: 1 },
   content: { padding: 17, paddingBottom: 30 },
   topBar: {
