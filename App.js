@@ -2784,30 +2784,24 @@ export default function App() {
               <Button title="📷 Apri galleria e scegli foto" type="secondary" onPress={chooseProductPhoto} />
               <View style={s.backgroundProviderWrap}>
                 <Text style={s.label}>Servizio per rimuovere lo sfondo</Text>
-                <View style={s.backgroundProviderSwitch}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Seleziona BGNinja"
-                    onPress={() => setBackgroundRemovalProvider('bgninja')}
-                    style={s.backgroundProviderSide}>
+                <View style={s.backgroundProviderLabels}>
+                  <TouchableOpacity onPress={() => setBackgroundRemovalProvider('bgninja')} style={s.backgroundProviderLabelSide}>
                     <Text style={[s.backgroundProviderText, backgroundRemovalProvider === 'bgninja' && s.backgroundProviderTextActive]}>BGNinja</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Seleziona Poof"
-                    onPress={() => setBackgroundRemovalProvider('poof')}
-                    style={s.backgroundProviderSide}>
+                  <TouchableOpacity onPress={() => setBackgroundRemovalProvider('poof')} style={s.backgroundProviderLabelSide}>
                     <Text style={[s.backgroundProviderText, backgroundRemovalProvider === 'poof' && s.backgroundProviderTextActive]}>Poof</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="switch"
-                    accessibilityState={{ checked: backgroundRemovalProvider === 'poof' }}
-                    accessibilityLabel={backgroundRemovalProvider === 'poof' ? 'Servizio selezionato: Poof' : 'Servizio selezionato: BGNinja'}
-                    onPress={() => setBackgroundRemovalProvider((current) => current === 'poof' ? 'bgninja' : 'poof')}
-                    style={[s.backgroundProviderKnob, backgroundRemovalProvider === 'poof' ? s.backgroundProviderKnobRight : s.backgroundProviderKnobLeft]}>
-                    <View style={s.backgroundProviderDot} />
-                  </TouchableOpacity>
                 </View>
+                <TouchableOpacity
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: backgroundRemovalProvider === 'poof' }}
+                  accessibilityLabel={backgroundRemovalProvider === 'poof' ? 'Servizio selezionato: Poof' : 'Servizio selezionato: BGNinja'}
+                  onPress={() => setBackgroundRemovalProvider((current) => current === 'poof' ? 'bgninja' : 'poof')}
+                  style={s.backgroundProviderSwitch}>
+                  <View style={[s.backgroundProviderKnob, backgroundRemovalProvider === 'poof' ? s.backgroundProviderKnobRight : s.backgroundProviderKnobLeft]}>
+                    <View style={s.backgroundProviderDot} />
+                  </View>
+                </TouchableOpacity>
                 <Text style={s.mutedSmall}>
                   Selezionato: {backgroundRemovalProvider === 'poof' ? 'Poof' : 'BGNinja'}. Il servizio scelto viene usato da solo; non c’è fallback automatico.
                 </Text>
@@ -4579,20 +4573,20 @@ export default function App() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   backgroundProviderWrap: { marginTop: 12, marginBottom: 8, gap: 7 },
+  backgroundProviderLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12 },
+  backgroundProviderLabelSide: { paddingVertical: 3 },
   backgroundProviderSwitch: {
-    height: 46, borderRadius: 24, backgroundColor: C.panel2, borderWidth: 1,
-    borderColor: C.border, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-around', position: 'relative', overflow: 'hidden',
+    height: 28, borderRadius: 16, backgroundColor: C.panel2, borderWidth: 1,
+    borderColor: C.border, position: 'relative', justifyContent: 'center',
   },
-  backgroundProviderSide: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
   backgroundProviderText: { color: C.muted, fontSize: 12, fontWeight: '700' },
   backgroundProviderTextActive: { color: C.white },
   backgroundProviderKnob: {
-    position: 'absolute', top: 4, width: '48%', height: 36, borderRadius: 20,
+    position: 'absolute', top: 2, width: 22, height: 22, borderRadius: 12,
     backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center',
   },
-  backgroundProviderKnobLeft: { left: 4 },
-  backgroundProviderKnobRight: { right: 4 },
+  backgroundProviderKnobLeft: { left: 3 },
+  backgroundProviderKnobRight: { right: 3 },
   backgroundProviderDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.white },
 
   main: { flex: 1 },
