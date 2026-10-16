@@ -3429,14 +3429,19 @@ export default function App() {
       await Linking.openURL(url);
     } catch (error) {
       const message = String(error && error.message ? error.message : error || 'Errore sconosciuto');
-      // La verifica arricchisce avatar e identificativi, ma non deve bloccare l'apertura
-      // del profilo quando TikTok restituisce dati incompleti. Usa lo username salvato.
-      if (savedUsername) {
+      // Se abbiamo già un'identità salvata, non aprire uno username digitato che potrebbe
+      // essere incompleto o cambiato: la ricerca per ID deve riuscire prima di aggiornare/aprire.
+      if (savedSecUid || savedUserId) {
+        Alert.alert(
+          'Verifica del profilo non riuscita',
+          message + '\\n\\nNon ho aperto lo username inserito perché l'identità salvata non è stata verificata. Riprova più tardi; nessun dato è stato modificato.'
+        );
+      } else if (savedUsername) {
         try {
           await Linking.openURL('https://www.tiktok.com/@' + encodeURIComponent(savedUsername));
           Alert.alert(
             'Profilo aperto senza verifica',
-            'TikTok non ha restituito tutti i dati del profilo, quindi non ho aggiornato foto e identificativi. Ho aperto il profilo usando lo username salvato: @' + savedUsername + '.'
+            'TikTok non ha restituito tutti i dati del profilo. Ho aperto il profilo usando lo username inserito: @' + savedUsername + ', ma non ho aggiornato foto e identificativi.'
           );
         } catch (_) {
           Alert.alert('Impossibile aprire il profilo', 'Non sono riuscito ad aprire il profilo TikTok @' + savedUsername + '. Verifica che lo username sia corretto.');
