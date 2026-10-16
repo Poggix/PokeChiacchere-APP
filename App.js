@@ -5188,7 +5188,7 @@ export default function App() {
                 style={{ flex: 1 }}
                 initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                 showsUserLocation={false}
-                mapType="standard"
+                mapType="mutedStandard"
                 showsCompass={false}
                 showsScale={false}
                 showsBuildings={false}
@@ -5199,7 +5199,20 @@ export default function App() {
                 loadingEnabled
               >
                 {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(22,139,255,0.9)" fillColor="rgba(22,139,255,0.14)" />}
-                <Marker coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} title="Socio" description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')} pinColor="#168BFF" tracksViewChanges={false} />
+                <Marker
+                  coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }}
+                  title="Socio"
+                  description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')}
+                  tracksViewChanges={false}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                >
+                  <View style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ position: 'absolute', width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(45,132,255,0.18)', borderWidth: 1, borderColor: 'rgba(45,132,255,0.30)' }} />
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#2D84FF', borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#00152E', shadowOpacity: 0.28, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' }} />
+                    </View>
+                  </View>
+                </Marker>
               </MapView>
               <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
                 <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
