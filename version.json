@@ -1,8 +1,8 @@
 {
-  "version": "3.4.3",
-  "build": 32,
+  "version": "3.4.4",
+  "build": 33,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Build 32: accesso effettivo, batteria socio e cronologia GPS",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.3-build32/PokeChiacchere-v3.4.3-build32.ipa"
+  "notes": "Build 33: correzione compilazione Swift e aggiornamenti GPS",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.4-build33/PokeChiacchere-v3.4.4-build33.ipa"
 }
