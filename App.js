@@ -3076,7 +3076,7 @@ export default function App() {
       if (writeErrors.length) {
         summary += '\n\nErrori di salvataggio: ' + writeErrors.length + '\n' + writeErrors.slice(0, 3).join('\n');
         if (writeErrors.some((line) => /tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(line))) {
-          summary += '\n\nEsegui prima la migrazione SQL per aggiungere la colonna tiktok_username in Supabase.';
+          summary += '\n\nEsegui prima la migrazione supabase/migrations/20261016_customer_tiktok_identity.sql in Supabase.';
         }
       }
       Alert.alert('Importazione completata', summary);
