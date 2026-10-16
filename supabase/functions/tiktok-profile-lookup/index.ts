@@ -39,6 +39,11 @@ async function lookupBySecUid(secUid: string, expectedId: string) {
   const attempts = [
     { secUid, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
     { sec_uid: secUid, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
+    ...(expectedId ? [
+      { userId: expectedId, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
+      { user_id: expectedId, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
+      { id: expectedId, uniqueId: "", aid: "1988", app_name: "tiktok_web" },
+    ] : []),
   ];
   let lastReason = "TikTok non ha restituito dati JSON leggibili.";
 
@@ -108,11 +113,13 @@ async function lookupBySecUid(secUid: string, expectedId: string) {
         (keys ? ". Campi risposta: " + keys : ".");
       continue;
     }
-    if (profile.sec_uid !== secUid) {
-      throw new Error("L'identificativo restituito da TikTok non coincide con quello salvato: profilo non aggiornato.");
+    if (secUid && profile.sec_uid !== secUid) {
+      lastReason = "Il sec_uid restituito da TikTok non coincide con quello salvato.";
+      continue;
     }
     if (expectedId && profile.id !== expectedId) {
-      throw new Error("L'ID numerico del profilo restituito non coincide: profilo non aggiornato.");
+      lastReason = "L'ID numerico restituito da TikTok non coincide con quello salvato.";
+      continue;
     }
     return profile;
   }
