@@ -1055,7 +1055,10 @@ export default function App() {
         }).catch(() => {});
       }
     }, 15000);
+    let previousState = AppState.currentState;
     const subscription = AppState.addEventListener('change', (state) => {
+      const returnedToForeground = state === 'active' && previousState !== 'active';
+      previousState = state;
       api('/rest/v1/member_presence?on_conflict=user_id', token, {
         method: 'POST',
         headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -1064,6 +1067,7 @@ export default function App() {
           email: session.user.email || '',
           last_seen_at: new Date().toISOString(),
           is_active: state === 'active',
+          ...(returnedToForeground ? { last_opened_at: new Date().toISOString() } : {}),
           app_version: INSTALLED_APP_VERSION,
         }),
       }).catch(() => {});
@@ -4618,10 +4622,14 @@ export default function App() {
       return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
     };
     const latest = { latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude };
-    const points = partnerHistory.filter((p) => Date.now() - new Date(p.recorded_at).getTime() <= 24 * 60 * 60 * 1000);
-    const samePlace = points.filter((p) => distanceMeters(latest, p) <= 150);
+    const points = partnerHistory.filter((p) => Date.now() - new Date(p.recorded_at).getTime() <= 24 * 60 * 60 * 1000).slice().sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
+    const samePlace = [];
+    for (const point of points) {
+      if (distanceMeters(latest, point) > 150) break;
+      samePlace.push(point);
+    }
     if (!samePlace.length) return 'Permanenza: in raccolta dati';
-    const first = samePlace[0];
+    const first = samePlace[samePlace.length - 1];
     const minutes = Math.max(0, Math.floor((Date.now() - new Date(first.recorded_at).getTime()) / 60000));
     if (minutes < 1) return 'Qui da meno di 1 min';
     if (minutes < 60) return 'Qui da ' + minutes + ' min';
