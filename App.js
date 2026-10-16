@@ -2881,13 +2881,27 @@ export default function App() {
         return;
       }
 
-      // Rilegge i dati dal database prima di associare gli username: non usa una lista potenzialmente obsoleta.
+      // Rilegge tutti i record dal database a pagine: Supabase normalmente limita una singola risposta a 1000 righe.
+      // Non modifica mai la tabella sales: la usa esclusivamente per trovare il cliente corretto.
+      const fetchAllRows = async (path) => {
+        const allRows = [];
+        const pageSize = 500;
+        for (let offset = 0; offset < 100000; offset += pageSize) {
+          const batch = await api(path + '&order=id.asc', token, {
+            headers: { Range: offset + '-' + (offset + pageSize - 1) },
+          });
+          const rows = Array.isArray(batch) ? batch : [];
+          allRows.push(...rows);
+          if (rows.length < pageSize) return allRows;
+        }
+        throw new Error('Archivio troppo grande per un’unica importazione. Dividi il file o contatta l’assistenza.');
+      };
       const results = await Promise.all([
-        api('/rest/v1/sales?select=order_number,customer_name,customer_first_name,customer_last_name', token),
-        api('/rest/v1/customers?select=id,name,tiktok_username', token),
+        fetchAllRows('/rest/v1/sales?select=id,order_number,customer_name,customer_first_name,customer_last_name'),
+        fetchAllRows('/rest/v1/customers?select=id,name,tiktok_username'),
       ]);
-      const sales = Array.isArray(results[0]) ? results[0] : [];
-      const customers = Array.isArray(results[1]) ? results[1] : [];
+      const sales = results[0];
+      const customers = results[1];
       const nameKey = (value) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('it').replace(/\s+/g, ' ');
       const orderKey = (value) => clean(value).replace(/^['\x60]/, '').replace(/\s+/g, '');
       const salesByOrder = new Map();
