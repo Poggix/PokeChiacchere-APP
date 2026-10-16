@@ -3817,10 +3817,10 @@ export default function App() {
 
         Alert.alert(
           'Aggiornamento disponibile',
-          'Installata: v' + installedVersion + ' (build ' + installedBuild + ')\\n' +
+          'Installata: v' + installedVersion + ' (build ' + installedBuild + ')\n' +
             'Disponibile: v' + latestVersion + ' (build ' + latestBuild + ')' +
-            (latest.notes ? '\\n\\n' + latest.notes : '') +
-            '\\n\\nPremi “Scarica e condividi” per scaricare la IPA e aprire il menu di condivisione iOS. Da lì scegli SideStore, se compare.',
+            (latest.notes ? '\n\n' + latest.notes : '') +
+            '\n\nPremi “Scarica e condividi” per scaricare la IPA e aprire il menu di condivisione iOS. Da lì scegli SideStore, se compare.',
           [
             { text: 'Più tardi', style: 'cancel' },
             {
