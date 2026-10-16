@@ -5169,8 +5169,11 @@ export default function App() {
                 initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                 region={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                 showsUserLocation={false}
+                mapType="mutedStandard"
                 showsCompass
                 showsScale
+                showsBuildings={false}
+                showsTraffic={false}
               >
                 <Marker coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} title="Socio" description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')} />
                 {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(22,139,255,0.8)" fillColor="rgba(22,139,255,0.18)" />}
