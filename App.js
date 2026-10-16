@@ -378,6 +378,7 @@ export default function App() {
   const [partnerMapLocation, setPartnerMapLocation] = useState(null);
   const [partnerMapBusy, setPartnerMapBusy] = useState(false);
   const [partnerMapError, setPartnerMapError] = useState('');
+  const [backgroundRemovalProvider, setBackgroundRemovalProvider] = useState('poof');
 
   const [records, setRecords] = useState({
     sales: [],
@@ -1391,8 +1392,6 @@ export default function App() {
     setLoading(true);
     try {
       let sourceUri = form.photo_preview;
-      // L'API richiede un file locale multipart; se si sta modificando un prodotto
-      // già salvato, scarichiamo temporaneamente la foto dallo Storage.
       if (/^https?:\/\//i.test(sourceUri)) {
         const downloaded = await FileSystem.downloadAsync(
           sourceUri,
@@ -1401,74 +1400,52 @@ export default function App() {
         sourceUri = downloaded.uri;
       }
 
-      const makeFormData = (fieldName) => {
-        const body = new FormData();
-        body.append(fieldName, {
-          uri: sourceUri,
-          name: 'product-photo.jpg',
-          type: 'image/jpeg',
-        });
-        return body;
-      };
+      const body = new FormData();
+      body.append('file', {
+        uri: sourceUri,
+        name: 'product-photo.jpg',
+        type: 'image/jpeg',
+      });
 
       let cutoutResponse;
-      let provider = 'Poof';
-      let poofError = '';
-      // Poof usa una chiave privata configurata come secret nella Supabase Edge Function.
-      // Se la funzione non è configurata o il servizio non è disponibile, usiamo BGNinja.
-      try {
+      const provider = backgroundRemovalProvider;
+      if (provider === 'poof') {
         cutoutResponse = await fetch(`${URL}/functions/v1/remove-product-background`, {
           method: 'POST',
           headers: {
             apikey: KEY,
             Authorization: `Bearer ${token}`,
           },
-          body: makeFormData('file'),
+          body,
         });
-        if (!cutoutResponse.ok) {
-          let detail = '';
-          try {
-            const errorBody = await cutoutResponse.json();
-            detail = errorBody.error || errorBody.detail || '';
-          } catch (_) {}
-          poofError = detail || ('Poof non disponibile (HTTP ' + cutoutResponse.status + ').');
-          cutoutResponse = null;
-        }
-      } catch (error) {
-        poofError = error?.message || 'Poof non raggiungibile.';
-        cutoutResponse = null;
-      }
-
-      if (!cutoutResponse) {
-        provider = 'BGNinja';
-        const fallbackForm = makeFormData('file');
-        fallbackForm.append('src', 'pokechiacchere');
+      } else {
+        body.append('src', 'pokechiacchere');
         cutoutResponse = await fetch('https://bgninja.com/api/remove', {
           method: 'POST',
-          body: fallbackForm,
+          body,
         });
-        if (!cutoutResponse.ok) {
-          let detail = '';
-          try {
-            const errorBody = await cutoutResponse.json();
-            detail = errorBody.error || errorBody.detail || '';
-          } catch (_) {}
-          if (cutoutResponse.status === 402) {
-            throw new Error('Poof non disponibile. Hai anche raggiunto il limite gratuito di 10 scontorni giornalieri BGNinja per indirizzo IP. Riprova domani.');
-          }
-          throw new Error((detail || ('Nessun servizio di scontorno disponibile (HTTP ' + cutoutResponse.status + ').')) + (poofError ? '\nDettaglio Poof: ' + poofError : ''));
-        }
+      }
+
+      if (!cutoutResponse.ok) {
+        let detail = '';
+        try {
+          const errorBody = await cutoutResponse.json();
+          detail = errorBody.error || errorBody.detail || errorBody.message || '';
+        } catch (_) {}
+        throw new Error(detail || `${provider === 'poof' ? 'Poof' : 'BGNinja'} ha restituito un errore HTTP ${cutoutResponse.status}. Nessun passaggio automatico all'altro servizio è stato eseguito.`);
       }
 
       const pngBuffer = await cutoutResponse.arrayBuffer();
-      if (!pngBuffer || pngBuffer.byteLength < 100) throw new Error(provider + ' ha restituito un’immagine vuota.');
+      if (!pngBuffer || pngBuffer.byteLength < 100) {
+        throw new Error((provider === 'poof' ? 'Poof' : 'BGNinja') + ' ha restituito un’immagine vuota.');
+      }
       const localPng = FileSystem.cacheDirectory + 'product-cutout-' + Date.now() + '.png';
       await FileSystem.writeAsStringAsync(localPng, arrayBufferToBase64(pngBuffer), {
         encoding: FileSystem.EncodingType.Base64,
       });
       const publicUrl = await uploadProductPhoto(localPng, 'image/png');
       setForm((old) => ({ ...old, photo_url: publicUrl, photo_preview: localPng }));
-      Alert.alert('Sfondo rimosso', 'Risultato ottenuto con ' + provider + '. Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
+      Alert.alert('Sfondo rimosso', 'Risultato ottenuto con ' + (provider === 'poof' ? 'Poof' : 'BGNinja') + '. Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
     } catch (e) {
       Alert.alert('Impossibile rimuovere lo sfondo', e?.message || 'Controlla la connessione e riprova.');
     } finally {
@@ -2805,11 +2782,41 @@ export default function App() {
                 </View>
               )}
               <Button title="📷 Apri galleria e scegli foto" type="secondary" onPress={chooseProductPhoto} />
+              <View style={s.backgroundProviderWrap}>
+                <Text style={s.label}>Servizio per rimuovere lo sfondo</Text>
+                <View style={s.backgroundProviderSwitch}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Seleziona BGNinja"
+                    onPress={() => setBackgroundRemovalProvider('bgninja')}
+                    style={s.backgroundProviderSide}>
+                    <Text style={[s.backgroundProviderText, backgroundRemovalProvider === 'bgninja' && s.backgroundProviderTextActive]}>BGNinja</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Seleziona Poof"
+                    onPress={() => setBackgroundRemovalProvider('poof')}
+                    style={s.backgroundProviderSide}>
+                    <Text style={[s.backgroundProviderText, backgroundRemovalProvider === 'poof' && s.backgroundProviderTextActive]}>Poof</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: backgroundRemovalProvider === 'poof' }}
+                    accessibilityLabel={backgroundRemovalProvider === 'poof' ? 'Servizio selezionato: Poof' : 'Servizio selezionato: BGNinja'}
+                    onPress={() => setBackgroundRemovalProvider((current) => current === 'poof' ? 'bgninja' : 'poof')}
+                    style={[s.backgroundProviderKnob, backgroundRemovalProvider === 'poof' ? s.backgroundProviderKnobRight : s.backgroundProviderKnobLeft]}>
+                    <View style={s.backgroundProviderDot} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={s.mutedSmall}>
+                  Selezionato: {backgroundRemovalProvider === 'poof' ? 'Poof' : 'BGNinja'}. Il servizio scelto viene usato da solo; non c’è fallback automatico.
+                </Text>
+              </View>
               {form.photo_preview ? (
-                <Button title="✂️ Rimuovi sfondo automaticamente" type="secondary" onPress={removeProductBackground} />
+                <Button title={`✂️ Rimuovi sfondo con ${backgroundRemovalProvider === 'poof' ? 'Poof' : 'BGNinja'}`} type="secondary" onPress={removeProductBackground} />
               ) : null}
               <Text style={[s.mutedText, { marginTop: 6 }]}>
-                Lo scontorno prova prima Poof (100 immagini gratuite al mese, dopo averlo configurato su Supabase) e usa BGNinja come riserva gratuita fino a 10 foto al giorno per IP. Serve internet.
+                Poof usa la chiave configurata nei Secrets di Supabase. BGNinja ha i propri limiti gratuiti. Serve internet.
               </Text>
             </View>
           )}
@@ -4571,6 +4578,23 @@ export default function App() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  backgroundProviderWrap: { marginTop: 12, marginBottom: 8, gap: 7 },
+  backgroundProviderSwitch: {
+    height: 46, borderRadius: 24, backgroundColor: C.panel2, borderWidth: 1,
+    borderColor: C.border, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-around', position: 'relative', overflow: 'hidden',
+  },
+  backgroundProviderSide: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  backgroundProviderText: { color: C.muted, fontSize: 12, fontWeight: '700' },
+  backgroundProviderTextActive: { color: C.white },
+  backgroundProviderKnob: {
+    position: 'absolute', top: 4, width: '48%', height: 36, borderRadius: 20,
+    backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center',
+  },
+  backgroundProviderKnobLeft: { left: 4 },
+  backgroundProviderKnobRight: { right: 4 },
+  backgroundProviderDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: C.white },
+
   main: { flex: 1 },
   content: { padding: 17, paddingBottom: 30 },
   topBar: {
