@@ -359,6 +359,7 @@ export default function App() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerImporting, setCustomerImporting] = useState(false);
+  const [tiktokProfileOpening, setTiktokProfileOpening] = useState(false);
   const [activitySearch, setActivitySearch] = useState('');
   const [activityActionFilter, setActivityActionFilter] = useState('ALL');
   const [activityTableFilter, setActivityTableFilter] = useState('ALL');
@@ -3357,6 +3358,85 @@ export default function App() {
     );
   }
 
+  async function openTikTokProfile() {
+    if (!selectedCustomer?.id || tiktokProfileOpening) return;
+    const savedUsername = String(form.tiktok_username || selectedCustomer.tiktok_username || '').trim().replace(/^@/, '');
+    const savedSecUid = String(selectedCustomer.tiktok_sec_uid || '').trim();
+    const savedUserId = String(selectedCustomer.tiktok_user_id || '').trim();
+    if (!savedSecUid && !savedUsername) {
+      Alert.alert('Profilo TikTok mancante', 'Inserisci uno username TikTok oppure importa un CSV che permetta di verificare il profilo.');
+      return;
+    }
+
+    setTiktokProfileOpening(true);
+    try {
+      const response = await fetch(URL + '/functions/v1/tiktok-profile-lookup', {
+        method: 'POST',
+        headers: {
+          apikey: KEY,
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: savedUsername || null,
+          sec_uid: savedSecUid || null,
+          user_id: savedUserId || null,
+        }),
+      });
+      let result = null;
+      try { result = await response.json(); } catch (_) {}
+      if (!response.ok || !result || !result.ok || !result.user) {
+        throw new Error(result && result.error ? result.error : 'TikTok non ha consentito di verificare il profilo.');
+      }
+
+      const profile = result.user;
+      const currentUsername = String(profile.unique_id || '').trim().replace(/^@/, '');
+      const profileId = String(profile.id || '').trim();
+      const secUid = String(profile.sec_uid || '').trim();
+      if (!currentUsername || !profileId || !secUid) {
+        throw new Error('TikTok non ha restituito username e identificativi completi. Nessun dato è stato modificato.');
+      }
+      if (savedUserId && savedUserId !== profileId) {
+        throw new Error('L’ID TikTok restituito è diverso da quello salvato. Per evitare di aprire il profilo sbagliato, non ho aggiornato la scheda.');
+      }
+      if (savedSecUid && savedSecUid !== secUid) {
+        throw new Error('Il sec_uid TikTok restituito è diverso da quello salvato. Per evitare un abbinamento errato, non ho aggiornato la scheda.');
+      }
+
+      const patch = {
+        tiktok_username: currentUsername,
+        tiktok_user_id: profileId,
+        tiktok_sec_uid: secUid,
+        tiktok_avatar_url: String(profile.avatar_larger || profile.avatar_medium || profile.avatar_thumb || '').trim() || null,
+        tiktok_last_checked_at: String(result.checked_at || new Date().toISOString()),
+      };
+      await api('/rest/v1/customers?id=eq.' + encodeURIComponent(selectedCustomer.id), token, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(patch),
+      });
+
+      const updatedCustomer = { ...selectedCustomer, ...patch };
+      setSelectedCustomer(updatedCustomer);
+      setForm((current) => ({ ...current, tiktok_username: currentUsername }));
+      await loadData();
+
+      const url = String(profile.profile_url || ('https://www.tiktok.com/@' + encodeURIComponent(currentUsername)));
+      await Linking.openURL(url);
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error || 'Errore sconosciuto');
+      if (/tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(message)) {
+        Alert.alert('Configurazione Supabase mancante', 'Esegui la migrazione supabase/migrations/20261016_customer_tiktok_identity.sql e distribuisci la versione aggiornata della Edge Function tiktok-profile-lookup.');
+      } else if (/functions\/v1\/tiktok-profile-lookup|JWT|not found|404/i.test(message)) {
+        Alert.alert('Verifica TikTok non disponibile', 'Distribuisci la versione aggiornata di supabase/functions/tiktok-profile-lookup/index.ts in Supabase Edge Functions e riprova.');
+      } else {
+        Alert.alert('Impossibile verificare il profilo', message + '\n\nNon ho aperto il vecchio link perché potrebbe non essere più corretto.');
+      }
+    } finally {
+      setTiktokProfileOpening(false);
+    }
+  }
+
   async function saveCustomerDetails() {
     if (!selectedCustomer?.id) return;
     setLoading(true);
@@ -3532,16 +3612,11 @@ export default function App() {
             autoCapitalize="none"
             placeholder="es. nomeutente"
           />
-          {!!String(form.tiktok_username || '').trim() && (
+          {!!String(form.tiktok_username || selectedCustomer.tiktok_sec_uid || '').trim() && (
             <Button
-              title="Apri profilo TikTok"
+              title={tiktokProfileOpening ? 'Verifica profilo in corso…' : '🔄 Verifica e apri profilo TikTok'}
               type="secondary"
-              onPress={() => {
-                const username = String(form.tiktok_username || '').trim().replace(/^@/, '');
-                Linking.openURL('https://www.tiktok.com/@' + encodeURIComponent(username)).catch(() =>
-                  Alert.alert('TikTok', 'Impossibile aprire il profilo TikTok.')
-                );
-              }}
+              onPress={openTikTokProfile}
             />
           )}
           <Field
