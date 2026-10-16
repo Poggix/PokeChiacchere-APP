@@ -379,6 +379,33 @@ export default function App() {
   const [partnerMapBusy, setPartnerMapBusy] = useState(false);
   const [partnerMapError, setPartnerMapError] = useState('');
   const [backgroundRemovalProvider, setBackgroundRemovalProvider] = useState('poof');
+  const [backgroundProviderReady, setBackgroundProviderReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem('pokechiacchere_background_provider')
+      .then((savedProvider) => {
+        if (!active) return;
+        if (savedProvider === 'poof' || savedProvider === 'bgninja') {
+          setBackgroundRemovalProvider(savedProvider);
+        }
+      })
+      .catch((error) => {
+        console.warn('Impossibile recuperare il servizio di rimozione sfondo:', error?.message || error);
+      })
+      .finally(() => {
+        if (active) setBackgroundProviderReady(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!backgroundProviderReady) return;
+    AsyncStorage.setItem('pokechiacchere_background_provider', backgroundRemovalProvider)
+      .catch((error) => {
+        console.warn('Impossibile salvare il servizio di rimozione sfondo:', error?.message || error);
+      });
+  }, [backgroundRemovalProvider, backgroundProviderReady]);
 
   const [records, setRecords] = useState({
     sales: [],
