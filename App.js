@@ -5,7 +5,7 @@ import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import PokeLocation from './modules/poke-location';
-import MapView, { Marker, Circle, Polyline } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline, UrlTile } from 'react-native-maps';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
@@ -5188,7 +5188,7 @@ export default function App() {
                 style={{ flex: 1 }}
                 initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                 showsUserLocation={false}
-                mapType="mutedStandard"
+                mapType="none"
                 showsCompass={false}
                 showsScale={false}
                 showsBuildings={false}
@@ -5198,7 +5198,13 @@ export default function App() {
                 pitchEnabled={false}
                 loadingEnabled
               >
-                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(22,139,255,0.9)" fillColor="rgba(22,139,255,0.14)" />}
+                <UrlTile
+                  urlTemplate="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+                  maximumZ={19}
+                  tileSize={256}
+                  shouldReplaceMapContent
+                />
+                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(45,132,255,0.9)" fillColor="rgba(45,132,255,0.12)" />}
                 <Marker
                   coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }}
                   title="Socio"
@@ -5214,6 +5220,9 @@ export default function App() {
                   </View>
                 </Marker>
               </MapView>
+              <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#F7F8FA', alignItems: 'flex-end' }}>
+                <Text style={{ color: '#687385', fontSize: 10 }}>© OpenStreetMap contributors · © CARTO</Text>
+              </View>
               <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
                 <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
                 <Text style={s.panelTitle}>{partnerPlaceLabel}</Text>
