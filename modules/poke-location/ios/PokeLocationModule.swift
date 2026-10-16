@@ -173,7 +173,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     battery.isBatteryMonitoringEnabled = true
     let level = battery.batteryLevel
     let batteryPercent: Int? = level >= 0 ? Int((level * 100).rounded()) : nil
-    let body: [String: Any] = [
+    var body: [String: Any] = [
       "user_id": userId, "latitude": location.coordinate.latitude,
       "longitude": location.coordinate.longitude, "accuracy": max(0, location.horizontalAccuracy),
       "updated_at": timestamp
