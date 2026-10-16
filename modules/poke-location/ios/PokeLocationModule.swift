@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import CoreLocation
+import UIKit
 
 public class PokeLocationModule: Module {
   public func definition() -> ModuleDefinition {
@@ -167,10 +168,15 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     req.setValue("application/json", forHTTPHeaderField: "Content-Type")
     req.setValue("resolution=merge-duplicates,return=minimal", forHTTPHeaderField: "Prefer")
+    let timestamp = ISO8601DateFormatter().string(from: location.timestamp)
+    let battery = UIDevice.current
+    battery.isBatteryMonitoringEnabled = true
+    let level = battery.batteryLevel
+    let batteryPercent: Int? = level >= 0 ? Int((level * 100).rounded()) : nil
     let body: [String: Any] = [
       "user_id": userId, "latitude": location.coordinate.latitude,
       "longitude": location.coordinate.longitude, "accuracy": max(0, location.horizontalAccuracy),
-      "updated_at": ISO8601DateFormatter().string(from: location.timestamp)
+      "updated_at": timestamp
     ]
     req.httpBody = try? JSONSerialization.data(withJSONObject: body)
     URLSession.shared.dataTask(with: req) { _, response, error in
@@ -180,6 +186,36 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
         NSLog("PokeLocation upload error: %@", error.localizedDescription)
       } else if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
         NSLog("PokeLocation Supabase HTTP %ld", http.statusCode)
+      } else {
+        self.uploadHistory(location, timestamp: timestamp, batteryPercent: batteryPercent, token: token)
+      }
+    }.resume()
+  }
+
+  private func uploadHistory(_ location: CLLocation, timestamp: String, batteryPercent: Int?, token: String) {
+    guard let userId = defaults.string(forKey: "pokeLocationUserId") else { return }
+    let url = URL(string: "\(baseURL)/rest/v1/partner_location_history")!
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue(apiKey, forHTTPHeaderField: "apikey")
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+    var body: [String: Any] = [
+      "user_id": userId,
+      "latitude": location.coordinate.latitude,
+      "longitude": location.coordinate.longitude,
+      "accuracy": max(0, location.horizontalAccuracy),
+      "recorded_at": timestamp,
+      "source": "ios_core_location"
+    ]
+    if let batteryPercent = batteryPercent { body["battery_level"] = batteryPercent }
+    req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+    URLSession.shared.dataTask(with: req) { _, response, error in
+      if let error = error {
+        NSLog("PokeLocation history upload error: %@", error.localizedDescription)
+      } else if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+        NSLog("PokeLocation history HTTP %ld", http.statusCode)
       }
     }.resume()
   }
