@@ -30,7 +30,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     manager.distanceFilter = 10
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
-    manager.showsBackgroundLocationIndicator = true
+    manager.showsBackgroundLocationIndicator = false
     if defaults.bool(forKey: "pokeLocationEnabled") { startServices() }
   }
 
@@ -55,7 +55,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     manager.distanceFilter = 10
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
-    manager.showsBackgroundLocationIndicator = true
+    manager.showsBackgroundLocationIndicator = false
 
     // iOS-native authorization flow: also ask for Always if the user previously
     // granted only When In Use. The system may present the upgrade prompt later.
