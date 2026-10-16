@@ -203,13 +203,34 @@ serve(async (req: Request) => {
   }
 
   try {
-    const profile = secUid
-      ? await lookupBySecUid(secUid, expectedId)
-      : await lookupByUsername(username!);
+    let profile: ReturnType<typeof normalizeProfile>;
+    let lookupMethod = secUid ? "sec_uid" : "username";
+
+    if (secUid) {
+      try {
+        profile = await lookupBySecUid(secUid, expectedId);
+      } catch (idLookupError) {
+        // If TikTok blocks its undocumented ID endpoint, try the saved username page.
+        // Accept this fallback only when the returned profile still matches the stored IDs.
+        if (!username) throw idLookupError;
+        console.warn("[tiktok-profile-lookup] id_lookup_fallback_to_username", JSON.stringify({
+          requestId,
+          reason: idLookupError instanceof Error ? idLookupError.message : "unknown",
+        }));
+        const fallbackProfile = await lookupByUsername(username);
+        if (fallbackProfile.sec_uid !== secUid || (expectedId && fallbackProfile.id !== expectedId)) {
+          throw new Error("TikTok blocca la ricerca tramite ID e il profilo trovato dallo username non coincide con l'identità salvata. Nessun dato è stato modificato.");
+        }
+        profile = fallbackProfile;
+        lookupMethod = "username_identity_verified";
+      }
+    } else {
+      profile = await lookupByUsername(username!);
+    }
 
     console.info("[tiktok-profile-lookup] lookup_succeeded", JSON.stringify({
       requestId,
-      lookupMethod: secUid ? "sec_uid" : "username",
+      lookupMethod,
     }));
     return json({
       ok: true,
@@ -219,7 +240,7 @@ serve(async (req: Request) => {
         profile_url: "https://www.tiktok.com/@" + encodeURIComponent(profile.unique_id),
       },
       checked_at: new Date().toISOString(),
-      lookup_method: secUid ? "sec_uid" : "username",
+      lookup_method: lookupMethod,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
