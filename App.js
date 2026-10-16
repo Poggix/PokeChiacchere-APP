@@ -5199,7 +5199,7 @@ export default function App() {
                 loadingEnabled
               >
                 <UrlTile
-                  urlTemplate="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+                  urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                   maximumZ={19}
                   tileSize={256}
                   shouldReplaceMapContent
@@ -5221,7 +5221,7 @@ export default function App() {
                 </Marker>
               </MapView>
               <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#F7F8FA', alignItems: 'flex-end' }}>
-                <Text style={{ color: '#687385', fontSize: 10 }}>© OpenStreetMap contributors · © CARTO</Text>
+                <Text style={{ color: '#687385', fontSize: 10 }}>© OpenStreetMap contributors</Text>
               </View>
               <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
                 <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
