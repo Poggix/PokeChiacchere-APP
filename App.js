@@ -4606,8 +4606,33 @@ export default function App() {
     await loadPartnerHistory(true);
   }
 
+  function getPartnerStayLabel() {
+    if (!partnerMapLocation || !partnerHistory.length) return 'Permanenza: in raccolta dati';
+    const distanceMeters = (a, b) => {
+      const rad = (v) => v * Math.PI / 180;
+      const dLat = rad(b.latitude - a.latitude);
+      const dLon = rad(b.longitude - a.longitude);
+      const lat1 = rad(a.latitude);
+      const lat2 = rad(b.latitude);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+      return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    };
+    const latest = { latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude };
+    const points = partnerHistory.filter((p) => Date.now() - new Date(p.recorded_at).getTime() <= 24 * 60 * 60 * 1000);
+    const samePlace = points.filter((p) => distanceMeters(latest, p) <= 150);
+    if (!samePlace.length) return 'Permanenza: in raccolta dati';
+    const first = samePlace[0];
+    const minutes = Math.max(0, Math.floor((Date.now() - new Date(first.recorded_at).getTime()) / 60000));
+    if (minutes < 1) return 'Qui da meno di 1 min';
+    if (minutes < 60) return 'Qui da ' + minutes + ' min';
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return 'Qui da ' + hours + ' h' + (remainder ? ' e ' + remainder + ' min' : '');
+  }
+
   async function viewPartnerLocation() {
     setPartnerMapVisible(true);
+    loadPartnerHistory(false);
     const location = await fetchPartnerMapLocation(true);
     if (location) {
       try {
@@ -4678,7 +4703,7 @@ export default function App() {
                     <Text style={s.panelTitle}>{displayName}{isMe ? ' (tu)' : ''}</Text>
                     {!!presence?.app_version && <Text style={{ color: C.muted, fontSize: 11, fontWeight: '700' }}>v{presence.app_version}</Text>}
                   </View>
-                  <Text style={s.mutedSmall}>{active ? '● App aperta ora' : (presence?.last_opened_at || presence?.last_seen_at) ? 'Ultima apertura: ' + new Date(presence.last_opened_at || presence.last_seen_at).toLocaleString('it-IT') : 'Nessuna apertura registrata'}</Text>
+                  <Text style={s.mutedSmall}>{active ? '● App aperta ora' : presence?.last_opened_at ? 'Ultima apertura: ' + new Date(presence.last_opened_at).toLocaleString('it-IT') : 'Nessuna apertura registrata nella nuova versione'}</Text>
                 </View>
                 <View
                   accessibilityLabel={active ? 'Socio attivo' : 'Socio non attivo'}
@@ -5145,6 +5170,7 @@ export default function App() {
               <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
                 <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
                 <Text style={s.panelTitle}>{partnerPlaceLabel}</Text>
+                <Text style={{ color: C.green, fontSize: 15, fontWeight: '900' }}>{getPartnerStayLabel()}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <Text style={s.mutedSmall}>Batteria</Text>
                   <Text style={{ color: C.white, fontWeight: '900', fontSize: 16 }}>{partnerMapLocation.battery_level == null ? '—' : partnerMapLocation.battery_level + '%'}</Text>
