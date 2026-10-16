@@ -123,14 +123,24 @@ async function lookupByUsername(username: string) {
 }
 
 serve(async (req: Request) => {
+  const requestId = crypto.randomUUID();
+  console.info("[tiktok-profile-lookup] request_received", JSON.stringify({
+    requestId,
+    method: req.method,
+    timestamp: new Date().toISOString(),
+  }));
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json({ ok: false, error: "Metodo non consentito." }, 405);
+  if (req.method !== "POST") {
+    console.warn("[tiktok-profile-lookup] method_not_allowed", JSON.stringify({ requestId, method: req.method }));
+    return json({ ok: false, error: "Metodo non consentito.", request_id: requestId }, 405);
+  }
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
-    return json({ ok: false, error: "Richiesta JSON non valida." }, 400);
+    console.warn("[tiktok-profile-lookup] invalid_json", JSON.stringify({ requestId }));
+    return json({ ok: false, error: "Richiesta JSON non valida.", request_id: requestId }, 400);
   }
 
   const username = normalizeUsername(body.username);
@@ -139,8 +149,17 @@ serve(async (req: Request) => {
     ? String(body.user_id).trim()
     : "";
 
+  console.info("[tiktok-profile-lookup] lookup_started", JSON.stringify({
+    requestId,
+    hasUsername: Boolean(username),
+    hasSecUid: Boolean(secUid),
+    hasExpectedUserId: Boolean(expectedId),
+    lookupMethod: secUid ? "sec_uid" : "username",
+  }));
+
   if (!username && !secUid) {
-    return json({ ok: false, error: "Fornisci uno username oppure il sec_uid salvato." }, 400);
+    console.warn("[tiktok-profile-lookup] missing_identity", JSON.stringify({ requestId }));
+    return json({ ok: false, error: "Fornisci uno username oppure il sec_uid salvato.", request_id: requestId }, 400);
   }
 
   try {
@@ -148,8 +167,13 @@ serve(async (req: Request) => {
       ? await lookupBySecUid(secUid, expectedId)
       : await lookupByUsername(username!);
 
+    console.info("[tiktok-profile-lookup] lookup_succeeded", JSON.stringify({
+      requestId,
+      lookupMethod: secUid ? "sec_uid" : "username",
+    }));
     return json({
       ok: true,
+      request_id: requestId,
       user: {
         ...profile,
         profile_url: "https://www.tiktok.com/@" + encodeURIComponent(profile.unique_id),
@@ -159,6 +183,11 @@ serve(async (req: Request) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return json({ ok: false, error: message, retryable: true }, 502);
+    console.error("[tiktok-profile-lookup] lookup_failed", JSON.stringify({
+      requestId,
+      lookupMethod: secUid ? "sec_uid" : "username",
+      error: message,
+    }));
+    return json({ ok: false, error: message, retryable: true, request_id: requestId }, 502);
   }
 });
