@@ -178,6 +178,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
       "longitude": location.coordinate.longitude, "accuracy": max(0, location.horizontalAccuracy),
       "updated_at": timestamp
     ]
+    if let batteryPercent = batteryPercent { body["battery_level"] = batteryPercent }
     req.httpBody = try? JSONSerialization.data(withJSONObject: body)
     URLSession.shared.dataTask(with: req) { _, response, error in
       if let http = response as? HTTPURLResponse, http.statusCode == 401, !retried {
