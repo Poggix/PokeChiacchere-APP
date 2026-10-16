@@ -12,6 +12,8 @@ import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
+import * as XLSX from 'xlsx';
 import {
   ActivityIndicator,
   Alert,
@@ -356,6 +358,7 @@ export default function App() {
   const [activityLogs, setActivityLogs] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerImporting, setCustomerImporting] = useState(false);
   const [activitySearch, setActivitySearch] = useState('');
   const [activityActionFilter, setActivityActionFilter] = useState('ALL');
   const [activityTableFilter, setActivityTableFilter] = useState('ALL');
@@ -2752,6 +2755,242 @@ export default function App() {
     );
   }
 
+
+  async function importTikTokCustomerFile() {
+    if (customerImporting) return;
+    setCustomerImporting(true);
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/comma-separated-values', 'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/octet-stream'],
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled || !picked.assets || !picked.assets.length) return;
+      const asset = picked.assets[0];
+      const fileName = String(asset.name || '').toLowerCase();
+      const extension = fileName.includes('.') ? fileName.split('.').pop() : '';
+      if (!['csv', 'tsv', 'xls', 'xlsx'].includes(extension)) {
+        Alert.alert('Formato non supportato', 'Scegli un file CSV, XLS o XLSX esportato da TikTok Shop.');
+        return;
+      }
+      if (asset.size && asset.size > 20 * 1024 * 1024) {
+        Alert.alert('File troppo grande', 'Per sicurezza, importa un file da massimo 20 MB.');
+        return;
+      }
+
+      let matrix = [];
+      if (extension === 'csv' || extension === 'tsv') {
+        const content = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.UTF8 });
+        const text = String(content || '').replace(/^\uFEFF/, '');
+        const firstLine = (text.split(/\r?\n/).find((line) => line.trim()) || '');
+        const separatorCounts = [',', ';', '\t'].map((separator) => {
+          let count = 0;
+          let quoted = false;
+          for (let i = 0; i < firstLine.length; i += 1) {
+            const char = firstLine[i];
+            if (char === '"') {
+              if (quoted && firstLine[i + 1] === '"') i += 1;
+              else quoted = !quoted;
+            } else if (!quoted && char === separator) count += 1;
+          }
+          return { separator, count };
+        });
+        const delimiter = extension === 'tsv' ? '\t' : separatorCounts.sort((a, b) => b.count - a.count)[0].separator;
+        let rows = [];
+        let row = [];
+        let cell = '';
+        let quoted = false;
+        for (let i = 0; i < text.length; i += 1) {
+          const char = text[i];
+          if (char === '"') {
+            if (quoted && text[i + 1] === '"') {
+              cell += '"';
+              i += 1;
+            } else quoted = !quoted;
+          } else if (char === delimiter && !quoted) {
+            row.push(cell);
+            cell = '';
+          } else if ((char === '\n' || char === '\r') && !quoted) {
+            if (char === '\r' && text[i + 1] === '\n') i += 1;
+            row.push(cell);
+            if (row.some((value) => String(value).trim() !== '')) rows.push(row);
+            row = [];
+            cell = '';
+          } else cell += char;
+        }
+        if (cell.length || row.length) {
+          row.push(cell);
+          if (row.some((value) => String(value).trim() !== '')) rows.push(row);
+        }
+        matrix = rows;
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+        const workbook = XLSX.read(base64, { type: 'base64', cellHTML: false, cellFormula: false, cellDates: false });
+        const firstSheet = workbook.SheetNames && workbook.SheetNames[0];
+        if (!firstSheet || !workbook.Sheets[firstSheet]) {
+          Alert.alert('File vuoto', 'Il file Excel non contiene un foglio leggibile.');
+          return;
+        }
+        matrix = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1, defval: '', raw: false, blankrows: false });
+      }
+
+      const clean = (value) => String(value == null ? '' : value).trim().replace(/^\uFEFF/, '');
+      const headerKey = (value) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const orderColumnNames = ['orderid', 'ordernumber', 'orderno', 'orderidnumber'];
+      const usernameColumnNames = ['buyerusername', 'username', 'buyerhandle', 'buyeraccount'];
+      let headerRowIndex = -1;
+      let orderColumn = -1;
+      let usernameColumn = -1;
+      for (let r = 0; r < Math.min(matrix.length, 15); r += 1) {
+        const headers = (matrix[r] || []).map(headerKey);
+        const orderIndex = headers.findIndex((h) => orderColumnNames.includes(h));
+        const usernameIndex = headers.findIndex((h) => usernameColumnNames.includes(h));
+        if (orderIndex >= 0 && usernameIndex >= 0) {
+          headerRowIndex = r;
+          orderColumn = orderIndex;
+          usernameColumn = usernameIndex;
+          break;
+        }
+      }
+      if (headerRowIndex < 0) {
+        Alert.alert('Colonne non trovate', 'Nel file devono esserci le colonne “Order ID” e “Buyer Username” (o “Username”). Controlla di aver scelto l’esportazione corretta.');
+        return;
+      }
+
+      const importedByOrder = new Map();
+      let rowsWithoutData = 0;
+      let maskedUsernames = 0;
+      for (let r = headerRowIndex + 1; r < matrix.length; r += 1) {
+        const row = matrix[r] || [];
+        const orderNumber = clean(row[orderColumn]).replace(/^['\x60]/, '');
+        const username = clean(row[usernameColumn]).replace(/^@/, '');
+        if (!orderNumber || !username) {
+          rowsWithoutData += 1;
+          continue;
+        }
+        if (username.includes('*') || username.includes('•') || username.includes('...') || !/^[a-zA-Z0-9._]{2,32}$/.test(username)) {
+          maskedUsernames += 1;
+          continue;
+        }
+        const order = orderNumber.replace(/\s+/g, '');
+        if (!importedByOrder.has(order)) importedByOrder.set(order, new Set());
+        importedByOrder.get(order).add(username.toLowerCase());
+      }
+      if (!importedByOrder.size) {
+        Alert.alert('Nessun dato utilizzabile', 'Non ho trovato righe con numero ordine e username TikTok validi nel file selezionato.');
+        return;
+      }
+
+      // Rilegge i dati dal database prima di associare gli username: non usa una lista potenzialmente obsoleta.
+      const results = await Promise.all([
+        api('/rest/v1/sales?select=order_number,customer_name,customer_first_name,customer_last_name', token),
+        api('/rest/v1/customers?select=id,name,tiktok_username', token),
+      ]);
+      const sales = Array.isArray(results[0]) ? results[0] : [];
+      const customers = Array.isArray(results[1]) ? results[1] : [];
+      const nameKey = (value) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('it').replace(/\s+/g, ' ');
+      const orderKey = (value) => clean(value).replace(/^['\x60]/, '').replace(/\s+/g, '');
+      const salesByOrder = new Map();
+      sales.forEach((sale) => {
+        const key = orderKey(sale.order_number);
+        if (!key) return;
+        if (!salesByOrder.has(key)) salesByOrder.set(key, []);
+        salesByOrder.get(key).push(sale);
+      });
+
+      let unmatchedOrders = 0;
+      let ambiguousOrders = 0;
+      let customersNotFound = 0;
+      let conflictedOrders = 0;
+      const plannedByCustomer = new Map();
+      importedByOrder.forEach((usernames, order) => {
+        if (usernames.size !== 1) {
+          conflictedOrders += 1;
+          return;
+        }
+        const matchingSales = salesByOrder.get(order);
+        if (!matchingSales || !matchingSales.length) {
+          unmatchedOrders += 1;
+          return;
+        }
+        const names = new Map();
+        matchingSales.forEach((sale) => {
+          const saleName = clean(sale.customer_name) || [sale.customer_first_name, sale.customer_last_name].map(clean).filter(Boolean).join(' ');
+          const key = nameKey(saleName);
+          if (key) names.set(key, saleName);
+        });
+        if (names.size !== 1) {
+          ambiguousOrders += 1;
+          return;
+        }
+        const customerName = Array.from(names.values())[0];
+        const matchingCustomers = customers.filter((customer) => nameKey(customer.name) === nameKey(customerName));
+        if (matchingCustomers.length !== 1) {
+          customersNotFound += 1;
+          return;
+        }
+        const customer = matchingCustomers[0];
+        const customerId = String(customer.id);
+        if (!plannedByCustomer.has(customerId)) plannedByCustomer.set(customerId, { customer: customer, usernames: new Set(), orderCount: 0 });
+        const planned = plannedByCustomer.get(customerId);
+        planned.usernames.add(Array.from(usernames)[0]);
+        planned.orderCount += 1;
+      });
+
+      let updated = 0;
+      let alreadyCorrect = 0;
+      let conflictedCustomers = 0;
+      const writeErrors = [];
+      for (const planned of plannedByCustomer.values()) {
+        if (planned.usernames.size !== 1) {
+          conflictedCustomers += 1;
+          continue;
+        }
+        const username = Array.from(planned.usernames)[0];
+        if (clean(planned.customer.tiktok_username).replace(/^@/, '').toLowerCase() === username) {
+          alreadyCorrect += 1;
+          continue;
+        }
+        try {
+          await api('/rest/v1/customers?id=eq.' + encodeURIComponent(planned.customer.id), token, {
+            method: 'PATCH',
+            headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify({ tiktok_username: username }),
+          });
+          updated += 1;
+        } catch (error) {
+          writeErrors.push(planned.customer.name + ': ' + (error.message || 'errore'));
+        }
+      }
+      await loadData();
+      let summary = 'Clienti aggiornati: ' + updated +
+        '\nGià aggiornati: ' + alreadyCorrect +
+        '\nOrdini del file senza vendita nell’app: ' + unmatchedOrders +
+        '\nOrdini ambigui saltati: ' + ambiguousOrders +
+        '\nClienti non presenti o duplicati nell’archivio: ' + customersNotFound +
+        '\nOrdini con username discordanti: ' + conflictedOrders +
+        '\nClienti con username discordanti: ' + conflictedCustomers +
+        '\nUsername mascherati/non validi ignorati: ' + maskedUsernames;
+      if (rowsWithoutData) summary += '\nRighe vuote/incomplete ignorate: ' + rowsWithoutData;
+      if (writeErrors.length) {
+        summary += '\n\nErrori di salvataggio: ' + writeErrors.length + '\n' + writeErrors.slice(0, 3).join('\n');
+        if (writeErrors.some((line) => /tiktok_username|column .*does not exist/i.test(line))) {
+          summary += '\n\nEsegui prima la migrazione SQL per aggiungere la colonna tiktok_username in Supabase.';
+        }
+      }
+      Alert.alert('Importazione completata', summary);
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error || 'Errore sconosciuto');
+      if (/tiktok_username|column .*does not exist/i.test(message)) {
+        Alert.alert('Configurazione Supabase mancante', 'Prima di importare, esegui in Supabase la migrazione supabase/migrations/20261016_customer_tiktok_username.sql. Dettaglio: ' + message);
+      } else {
+        Alert.alert('Importazione non riuscita', message);
+      }
+    } finally {
+      setCustomerImporting(false);
+    }
+  }
+
   function renderCatalog(table) {
     const isProduct = table === 'products';
     const rawCatalogData = records[table] || [];
@@ -2788,6 +3027,18 @@ export default function App() {
             </Text>
           </TouchableOpacity>
         </View>
+        {!isProduct && (
+          <View style={[s.panel, { marginTop: 12, marginBottom: 12 }]}>
+            <Button
+              title={customerImporting ? 'Importazione in corso…' : '📥 Importa CSV / Excel TikTok'}
+              type="secondary"
+              onPress={importTikTokCustomerFile}
+            />
+            <Text style={[s.mutedText, { marginTop: 8 }]}>
+              Importa i file con “Order ID” e “Buyer Username”. L’app aggiorna solo la scheda del cliente collegata a una vendita già registrata: non crea, modifica o elimina vendite. Puoi importare lo stesso file più volte senza duplicare nulla.
+            </Text>
+          </View>
+        )}
         <View style={s.panel}>
           <Field
             label={isProduct ? 'Nome prodotto' : 'Nome e cognome'}
@@ -2984,6 +3235,7 @@ export default function App() {
                       phone: row.phone || '',
                       email: row.email || '',
                       customer_notes: row.notes || '',
+                      tiktok_username: row.tiktok_username || '',
                     });
                     setPage('customerDetail');
                   }}
