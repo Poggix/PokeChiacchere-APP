@@ -2930,6 +2930,7 @@ export default function App() {
                 phone: row.phone || '',
                 email: row.email || '',
                 customer_notes: row.notes || '',
+                tiktok_username: row.tiktok_username || '',
               });
               setPage('customerDetail');
             }}
@@ -3017,6 +3018,7 @@ export default function App() {
             phone: form.phone || '',
             email: form.email || '',
             notes: form.customer_notes || '',
+            tiktok_username: String(form.tiktok_username || '').trim().replace(/^@/, ''),
           }),
         }
       );
@@ -3026,6 +3028,7 @@ export default function App() {
         phone: form.phone || '',
         email: form.email || '',
         notes: form.customer_notes || '',
+        tiktok_username: String(form.tiktok_username || '').trim().replace(/^@/, ''),
       };
       setSelectedCustomer(updated);
       Alert.alert(
@@ -3140,6 +3143,25 @@ export default function App() {
         </View>
         <View style={s.panel}>
           <Text style={s.sectionTitle}>DATI DI CONTATTO</Text>
+          <Field
+            label="Username TikTok"
+            value={form.tiktok_username || ''}
+            onChangeText={(v) => change('tiktok_username', v.replace(/^@/, ''))}
+            autoCapitalize="none"
+            placeholder="es. nomeutente"
+          />
+          {!!String(form.tiktok_username || '').trim() && (
+            <Button
+              title="Apri profilo TikTok"
+              type="secondary"
+              onPress={() => {
+                const username = String(form.tiktok_username || '').trim().replace(/^@/, '');
+                Linking.openURL('https://www.tiktok.com/@' + encodeURIComponent(username)).catch(() =>
+                  Alert.alert('TikTok', 'Impossibile aprire il profilo TikTok.')
+                );
+              }}
+            />
+          )}
           <Field
             label="Telefono"
             value={form.phone}
