@@ -5,7 +5,7 @@ import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import PokeLocation from './modules/poke-location';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline } from 'react-native-maps';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
@@ -385,6 +385,10 @@ export default function App() {
   const [partnerMapLocation, setPartnerMapLocation] = useState(null);
   const [partnerMapBusy, setPartnerMapBusy] = useState(false);
   const [partnerMapError, setPartnerMapError] = useState('');
+  const [partnerHistory, setPartnerHistory] = useState([]);
+  const [partnerHistoryBusy, setPartnerHistoryBusy] = useState(false);
+  const [partnerHistoryVisible, setPartnerHistoryVisible] = useState(false);
+  const [partnerPlaceLabel, setPartnerPlaceLabel] = useState('Luogo non disponibile');
   const [backgroundRemovalProvider, setBackgroundRemovalProvider] = useState('poof');
   const [backgroundProviderReady, setBackgroundProviderReady] = useState(false);
 
@@ -4546,7 +4550,7 @@ export default function App() {
   async function fetchPartnerMapLocation(showErrors = false) {
     try {
       setPartnerMapBusy(true);
-      const response = await fetch(URL + '/rest/v1/partner_locations?select=user_id,latitude,longitude,accuracy,updated_at&user_id=neq.' + encodeURIComponent(OWNER_USER_ID) + '&order=updated_at.desc&limit=1', {
+      const response = await fetch(URL + '/rest/v1/partner_locations?select=user_id,latitude,longitude,accuracy,updated_at,battery_level&user_id=neq.' + encodeURIComponent(OWNER_USER_ID) + '&order=updated_at.desc&limit=1', {
         headers: { apikey: KEY, Authorization: 'Bearer ' + token },
       });
       if (!response.ok) throw new Error('Supabase ha restituito HTTP ' + response.status);
@@ -4557,6 +4561,7 @@ export default function App() {
         latitude: Number(p.latitude),
         longitude: Number(p.longitude),
         accuracy: p.accuracy == null ? null : Number(p.accuracy),
+        battery_level: p.battery_level == null ? null : Number(p.battery_level),
         updated_at: p.updated_at,
       };
       if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)) throw new Error('Le coordinate ricevute non sono valide.');
@@ -4572,9 +4577,48 @@ export default function App() {
     }
   }
 
+  async function loadPartnerHistory(showErrors = false) {
+    if (!token) return;
+    setPartnerHistoryBusy(true);
+    try {
+      const response = await fetch(
+        URL + '/rest/v1/partner_location_history?select=id,user_id,latitude,longitude,accuracy,recorded_at,battery_level&user_id=neq.' +
+        encodeURIComponent(OWNER_USER_ID) + '&order=recorded_at.desc&limit=500',
+        { headers: { apikey: KEY, Authorization: 'Bearer ' + token } }
+      );
+      if (!response.ok) throw new Error('Impossibile leggere la cronologia (HTTP ' + response.status + ').');
+      const rows = await response.json();
+      setPartnerHistory((Array.isArray(rows) ? rows : []).map((row) => ({
+        ...row,
+        latitude: Number(row.latitude),
+        longitude: Number(row.longitude),
+        recorded_at: row.recorded_at,
+      })).filter((row) => Number.isFinite(row.latitude) && Number.isFinite(row.longitude)).reverse());
+    } catch (e) {
+      if (showErrors) Alert.alert('Cronologia non disponibile', e?.message || 'Controlla la configurazione Supabase.');
+    } finally {
+      setPartnerHistoryBusy(false);
+    }
+  }
+
+  async function viewPartnerHistory() {
+    setPartnerHistoryVisible(true);
+    await loadPartnerHistory(true);
+  }
+
   async function viewPartnerLocation() {
     setPartnerMapVisible(true);
-    await fetchPartnerMapLocation(true);
+    const location = await fetchPartnerMapLocation(true);
+    if (location) {
+      try {
+        const places = await Location.reverseGeocodeAsync({ latitude: location.latitude, longitude: location.longitude });
+        const place = places?.[0];
+        const label = place ? [place.name, place.street, place.city, place.region].filter(Boolean).join(', ') : '';
+        setPartnerPlaceLabel(label || 'Indirizzo non disponibile');
+      } catch (_) {
+        setPartnerPlaceLabel('Indirizzo non disponibile');
+      }
+    }
   }
 
   useEffect(() => {
@@ -5100,7 +5144,16 @@ export default function App() {
               </MapView>
               <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
                 <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
+                <Text style={s.panelTitle}>{partnerPlaceLabel}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <Text style={s.mutedSmall}>Batteria</Text>
+                  <Text style={{ color: C.white, fontWeight: '900', fontSize: 16 }}>{partnerMapLocation.battery_level == null ? '—' : partnerMapLocation.battery_level + '%'}</Text>
+                </View>
+                <View style={{ height: 6, borderRadius: 4, backgroundColor: C.panel2, overflow: 'hidden' }}>
+                  <View style={{ height: 6, width: (Math.max(0, Math.min(100, partnerMapLocation.battery_level || 0))) + '%', backgroundColor: (partnerMapLocation.battery_level || 0) <= 20 ? C.red : C.green }} />
+                </View>
                 <Text style={s.mutedSmall}>Ultimo dato: {new Date(partnerMapLocation.updated_at).toLocaleString('it-IT')} · Precisione: {partnerMapLocation.accuracy == null ? 'n/d' : Math.round(partnerMapLocation.accuracy) + ' m'}</Text>
+                <Button title={partnerHistoryBusy ? 'Caricamento cronologia…' : 'Cronologia spostamenti'} type="secondary" onPress={viewPartnerHistory} />
                 <Text style={s.mutedSmall}>La mappa controlla nuovi dati ogni 5 secondi. La frequenza effettiva dipende dagli aggiornamenti GPS e dalle limitazioni di iOS.</Text>
                 {partnerMapBusy && <ActivityIndicator color={C.cyan} />}
                 {!!partnerMapError && <Text style={{ color: C.yellow }}>{partnerMapError}</Text>}
@@ -5112,6 +5165,59 @@ export default function App() {
               <Text style={s.panelTitle}>Recupero posizione…</Text>
               <Text style={s.mutedSmall}>{partnerMapError || 'In attesa della prima posizione registrata dal telefono del socio.'}</Text>
               <Button title="Riprova" onPress={() => fetchPartnerMapLocation(true)} />
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
+      <Modal visible={partnerHistoryVisible} animationType="slide" onRequestClose={() => setPartnerHistoryVisible(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+          <View style={[s.topBar, { justifyContent: 'space-between' }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.brand}>CRONOLOGIA SOCIO</Text>
+              <Text style={s.topCaption}>ULTIMI SPOSTAMENTI REGISTRATI</Text>
+            </View>
+            <TouchableOpacity style={s.refresh} onPress={() => loadPartnerHistory(true)}>
+              <Text style={s.refreshText}>↻</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.refresh, { width: 62 }]} onPress={() => setPartnerHistoryVisible(false)}>
+              <Text style={[s.buttonText, { color: C.red }]}>Chiudi</Text>
+            </TouchableOpacity>
+          </View>
+          {partnerHistoryBusy && <ActivityIndicator color={C.cyan} style={{ margin: 12 }} />}
+          {partnerHistory.length > 0 ? (
+            <>
+              <MapView
+                style={{ flex: 1, minHeight: 240 }}
+                initialRegion={{
+                  latitude: partnerHistory[partnerHistory.length - 1].latitude,
+                  longitude: partnerHistory[partnerHistory.length - 1].longitude,
+                  latitudeDelta: 0.04,
+                  longitudeDelta: 0.04,
+                }}
+                showsCompass
+                showsScale
+              >
+                <Polyline
+                  coordinates={partnerHistory.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))}
+                  strokeColor={C.cyan}
+                  strokeWidth={4}
+                />
+                <Marker coordinate={{ latitude: partnerHistory[partnerHistory.length - 1].latitude, longitude: partnerHistory[partnerHistory.length - 1].longitude }} title="Ultima posizione" />
+              </MapView>
+              <ScrollView style={{ maxHeight: '48%' }} contentContainerStyle={{ padding: 14 }}>
+                <Text style={s.panelTitle}>{partnerHistory.length} punti registrati</Text>
+                {partnerHistory.slice().reverse().map((point, index) => (
+                  <View key={String(point.id || point.recorded_at) + '-' + index} style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                    <Text style={{ color: C.white, fontWeight: '800' }}>{new Date(point.recorded_at).toLocaleString('it-IT')}</Text>
+                    <Text style={s.mutedSmall}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)} · precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}{point.battery_level == null ? '' : ' · batteria ' + point.battery_level + '%'}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+              <Text style={s.panelTitle}>{partnerHistoryBusy ? 'Caricamento…' : 'Nessuno spostamento registrato'}</Text>
+              <Text style={s.mutedSmall}>I punti vengono raccolti da quando è stata installata la versione con la cronologia GPS.</Text>
             </View>
           )}
         </SafeAreaView>
