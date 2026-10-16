@@ -3449,7 +3449,7 @@ export default function App() {
       if (savedSecUid || savedUserId) {
         Alert.alert(
           'Verifica del profilo non riuscita',
-          message + '\\n\\nNon ho aperto lo username inserito perché l'identità salvata non è stata verificata. Riprova più tardi; nessun dato è stato modificato.'
+          message + '\n\nNon ho aperto lo username inserito perché l’identità salvata non è stata verificata. Riprova più tardi; nessun dato è stato modificato.'
         );
       } else if (savedUsername) {
         try {
