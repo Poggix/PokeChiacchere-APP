@@ -3019,9 +3019,10 @@ export default function App() {
         }
 
         let profile = null;
+        let lookupResult = null;
         try {
-          const lookup = await lookupTikTokProfile(importedUsername);
-          profile = lookup.user;
+          lookupResult = await lookupTikTokProfile(importedUsername);
+          profile = lookupResult.user;
         } catch (error) {
           lookupErrors += 1;
           if (lookupErrorMessages.length < 3) lookupErrorMessages.push(String(error && error.message ? error.message : error));
@@ -3059,7 +3060,7 @@ export default function App() {
               tiktok_user_id: foundId,
               tiktok_sec_uid: foundSecUid,
               tiktok_avatar_url: clean(profile.avatar_larger || profile.avatar_medium || profile.avatar_thumb) || null,
-              tiktok_last_checked_at: clean(lookup.checked_at) || new Date().toISOString(),
+              tiktok_last_checked_at: clean(lookupResult && lookupResult.checked_at) || new Date().toISOString(),
             };
           }
         } else {
