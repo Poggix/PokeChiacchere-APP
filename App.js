@@ -1400,37 +1400,75 @@ export default function App() {
         );
         sourceUri = downloaded.uri;
       }
-      const formData = new FormData();
-      formData.append('file', {
-        uri: sourceUri,
-        name: 'product-photo.jpg',
-        type: 'image/jpeg',
-      });
-      formData.append('src', 'pokechiacchere');
-      const cutoutResponse = await fetch('https://bgninja.com/api/remove', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!cutoutResponse.ok) {
-        let detail = '';
-        try {
-          const errorBody = await cutoutResponse.json();
-          detail = errorBody.error || errorBody.detail || '';
-        } catch (_) {}
-        if (cutoutResponse.status === 402) {
-          throw new Error('Hai raggiunto il limite gratuito di 10 scontorni giornalieri per indirizzo IP. Riprova domani.');
+
+      const makeFormData = (fieldName) => {
+        const body = new FormData();
+        body.append(fieldName, {
+          uri: sourceUri,
+          name: 'product-photo.jpg',
+          type: 'image/jpeg',
+        });
+        return body;
+      };
+
+      let cutoutResponse;
+      let provider = 'Poof';
+      let poofError = '';
+      // Poof usa una chiave privata configurata come secret nella Supabase Edge Function.
+      // Se la funzione non è configurata o il servizio non è disponibile, usiamo BGNinja.
+      try {
+        cutoutResponse = await fetch(`${URL}/functions/v1/remove-product-background`, {
+          method: 'POST',
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${token}`,
+          },
+          body: makeFormData('file'),
+        });
+        if (!cutoutResponse.ok) {
+          let detail = '';
+          try {
+            const errorBody = await cutoutResponse.json();
+            detail = errorBody.error || errorBody.detail || '';
+          } catch (_) {}
+          poofError = detail || ('Poof non disponibile (HTTP ' + cutoutResponse.status + ').');
+          cutoutResponse = null;
         }
-        throw new Error(detail || ('Servizio di scontorno non disponibile (HTTP ' + cutoutResponse.status + '). Riprova tra poco.'));
+      } catch (error) {
+        poofError = error?.message || 'Poof non raggiungibile.';
+        cutoutResponse = null;
       }
+
+      if (!cutoutResponse) {
+        provider = 'BGNinja';
+        const fallbackForm = makeFormData('file');
+        fallbackForm.append('src', 'pokechiacchere');
+        cutoutResponse = await fetch('https://bgninja.com/api/remove', {
+          method: 'POST',
+          body: fallbackForm,
+        });
+        if (!cutoutResponse.ok) {
+          let detail = '';
+          try {
+            const errorBody = await cutoutResponse.json();
+            detail = errorBody.error || errorBody.detail || '';
+          } catch (_) {}
+          if (cutoutResponse.status === 402) {
+            throw new Error('Poof non disponibile. Hai anche raggiunto il limite gratuito di 10 scontorni giornalieri BGNinja per indirizzo IP. Riprova domani.');
+          }
+          throw new Error((detail || ('Nessun servizio di scontorno disponibile (HTTP ' + cutoutResponse.status + ').')) + (poofError ? '\nDettaglio Poof: ' + poofError : ''));
+        }
+      }
+
       const pngBuffer = await cutoutResponse.arrayBuffer();
-      if (!pngBuffer || pngBuffer.byteLength < 100) throw new Error('Il servizio ha restituito un’immagine vuota.');
+      if (!pngBuffer || pngBuffer.byteLength < 100) throw new Error(provider + ' ha restituito un’immagine vuota.');
       const localPng = FileSystem.cacheDirectory + 'product-cutout-' + Date.now() + '.png';
       await FileSystem.writeAsStringAsync(localPng, arrayBufferToBase64(pngBuffer), {
         encoding: FileSystem.EncodingType.Base64,
       });
       const publicUrl = await uploadProductPhoto(localPng, 'image/png');
       setForm((old) => ({ ...old, photo_url: publicUrl, photo_preview: localPng }));
-      Alert.alert('Sfondo rimosso', 'Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
+      Alert.alert('Sfondo rimosso', 'Risultato ottenuto con ' + provider + '. Anteprima pronta. Premi “Aggiungi prodotto” per salvare la modifica nell’archivio.');
     } catch (e) {
       Alert.alert('Impossibile rimuovere lo sfondo', e?.message || 'Controlla la connessione e riprova.');
     } finally {
@@ -2771,7 +2809,7 @@ export default function App() {
                 <Button title="✂️ Rimuovi sfondo automaticamente" type="secondary" onPress={removeProductBackground} />
               ) : null}
               <Text style={[s.mutedText, { marginTop: 6 }]}>
-                Lo scontorno usa BGNinja: gratis fino a 10 foto al giorno per indirizzo IP. Serve una connessione internet.
+                Lo scontorno prova prima Poof (100 immagini gratuite al mese, dopo averlo configurato su Supabase) e usa BGNinja come riserva gratuita fino a 10 foto al giorno per IP. Serve internet.
               </Text>
             </View>
           )}
