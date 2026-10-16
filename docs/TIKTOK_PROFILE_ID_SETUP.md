@@ -29,6 +29,12 @@ La funzione non richiede una chiave TikTok. Le sole credenziali Supabase sono in
 
 Dopo aver eseguito la migrazione e distribuito la funzione, aprire GitHub → Actions → Build PokeChiacchere IPA → Run workflow sul branch `main`.
 
+## Pulsante “Verifica e apri profilo TikTok”
+
+Nella scheda cliente il pulsante chiama la Edge Function passando lo `sec_uid` salvato. La funzione prova a interrogare l'endpoint web non ufficiale `/api/user/detail/?secUid=...` e restituisce lo username corrente. L'app confronta gli ID, aggiorna i campi se coincidono e poi apre il link del profilo aggiornato. Se l'endpoint non risponde o l'identificativo non coincide, non sostituisce il nome e non apre il vecchio link.
+
+Questa richiesta usa un endpoint web non ufficiale, quindi TikTok può limitarla o modificarla. Se un cliente ha soltanto uno username e non è ancora stato salvato un ID stabile, il primo controllo parte dallo username corrente.
+
 ## Comportamento dell'importazione
 
 - CSV / Excel: `Order ID` collega la riga alla vendita; `Buyer Username` fornisce lo username da verificare.
