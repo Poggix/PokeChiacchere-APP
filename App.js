@@ -203,6 +203,7 @@ const today = () => {
 };
 
 const num = (v) => Number(String(v ?? 0).replace(',', '.')) || 0;
+const profitColor = (value) => (num(value) < 0 ? C.red : C.green);
 
 // Il database continua a ricevere date ISO (AAAA-MM-GG), mentre l'app le mostra in italiano.
 const toItalianDate = (value) => {
@@ -309,6 +310,8 @@ function DropDown({ label, value, onPress, hint }) {
 }
 
 function Card({ title, value, color = C.cyan, subtitle, valueFormat = 'money' }) {
+  const isProfitMetric = /utile|profit/i.test(String(title || ''));
+  const accentColor = isProfitMetric && valueFormat !== 'text' ? profitColor(value) : color;
   const displayValue =
     valueFormat === 'pieces'
       ? `${Number(value || 0).toLocaleString('it-IT', { maximumFractionDigits: 2 })} pz`
@@ -320,9 +323,9 @@ function Card({ title, value, color = C.cyan, subtitle, valueFormat = 'money' })
 
   return (
     <View style={s.metric}>
-      <View style={[s.metricLine, { backgroundColor: color }]} />
+      <View style={[s.metricLine, { backgroundColor: accentColor }]} />
       <Text style={s.metricLabel}>{title}</Text>
-      <Text style={s.metricValue}>{displayValue}</Text>
+      <Text style={[s.metricValue, isProfitMetric && valueFormat !== 'text' ? { color: accentColor } : null]}>{displayValue}</Text>
       {!!subtitle && <Text style={s.mutedSmall}>{subtitle}</Text>}
     </View>
   );
@@ -2071,7 +2074,7 @@ export default function App() {
             title="Prodotto con più utile"
             value={topProfitProduct?.product || 'Nessun dato'}
             valueFormat="text"
-            color={C.green}
+            color={profitColor(topProfitProduct?.profit ?? 0)}
             subtitle={topProfitProduct
               ? `Utile netto totale: ${money(topProfitProduct.profit)}`
               : 'Registra una vendita per vedere il prodotto più redditizio'}
@@ -2291,7 +2294,7 @@ export default function App() {
           <View style={s.separator} />
           <View style={s.heroRow}>
             <Text style={s.mutedText}>Utile dopo tassa stimata</Text>
-            <Text style={s.profitValue}>{money(totals.profit)}</Text>
+            <Text style={[s.profitValue, { color: profitColor(totals.profit) }]}>{money(totals.profit)}</Text>
           </View>
         </View>
 
@@ -2338,22 +2341,22 @@ export default function App() {
           <Card
             title="Utile prima della tassa"
             value={totals.profitBeforeTax}
-            color={C.cyan}
+            color={profitColor(totals.profitBeforeTax)}
           />
           <Card
             title="Utile dopo la tassa"
             value={totals.profit}
-            color={C.green}
+            color={profitColor(totals.profit)}
           />
           <Card
             title="Quota utile Poggio"
             value={totals.profit / 2}
-            color={C.cyan}
+            color={profitColor(totals.profit / 2)}
           />
           <Card
             title="Quota utile Fanton"
             value={totals.profit / 2}
-            color={C.yellow}
+            color={profitColor(totals.profit / 2)}
           />
         </View>
 
@@ -2554,7 +2557,7 @@ export default function App() {
             <Text style={s.summaryLine}>Altri costi: − {money(form.other_costs)}</Text>
             <Text style={s.summaryLine}>Tassa stimata (2%): − {money(orderTotal * 0.02)}</Text>
             <View style={s.separator} />
-            <Text style={[s.summaryLine, { color: C.green }]}>Utile netto stimato: {money(orderTotal - itemCost - num(form.fees) - num(form.shipping_cost) - num(form.other_costs) - orderTotal * 0.02)}</Text>
+            <Text style={[s.summaryLine, { color: profitColor(orderTotal - itemCost - num(form.fees) - num(form.shipping_cost) - num(form.other_costs) - orderTotal * 0.02) }]}>Utile netto stimato: {money(orderTotal - itemCost - num(form.fees) - num(form.shipping_cost) - num(form.other_costs) - orderTotal * 0.02)}</Text>
           </View>
           <Button title={editing ? 'Salva modifiche' : 'Salva vendita'} onPress={saveSale} />
           <Button title="Annulla" type="secondary" onPress={() => setPage('sales')} />
@@ -3597,7 +3600,7 @@ export default function App() {
             </View>
             <View style={s.customerStat}>
               <Text style={s.customerStatLabel}>UTILE STIMATO</Text>
-              <Text style={[s.customerStatValue, { color: C.green }]}>
+              <Text style={[s.customerStatValue, { color: profitColor(profit) }]}>
                 {money(profit)}
               </Text>
             </View>
