@@ -3373,8 +3373,15 @@ export default function App() {
     }
 
     setTiktokProfileOpening(true);
+    let lookupRequestId = null;
     try {
-      const response = await fetch(URL + '/functions/v1/tiktok-profile-lookup', {
+      const lookupUrl = URL + '/functions/v1/tiktok-profile-lookup';
+      console.info('[TikTok profile lookup] richiesta avviata', {
+        hasUsername: Boolean(savedUsername),
+        hasSecUid: Boolean(savedSecUid),
+        hasUserId: Boolean(savedUserId),
+      });
+      const response = await fetch(lookupUrl, {
         method: 'POST',
         headers: {
           apikey: KEY,
@@ -3389,8 +3396,16 @@ export default function App() {
       });
       let result = null;
       try { result = await response.json(); } catch (_) {}
+      lookupRequestId = result && result.request_id ? String(result.request_id) : null;
       if (!response.ok || !result || !result.ok || !result.user) {
-        throw new Error(result && result.error ? result.error : 'TikTok non ha consentito di verificare il profilo.');
+        const gatewayCode = response.headers && response.headers.get
+          ? response.headers.get('sb-error-code')
+          : null;
+        const details = result && result.error
+          ? result.error
+          : 'Risposta HTTP ' + response.status + (gatewayCode ? ' (' + gatewayCode + ')' : '') +
+            ': Supabase non ha restituito i dati del profilo.';
+        throw new Error(details + (lookupRequestId ? ' [Richiesta ' + lookupRequestId + ']' : ''));
       }
 
       const profile = result.user;
