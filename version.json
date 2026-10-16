@@ -1,8 +1,8 @@
 {
-  "version": "3.2.8",
-  "build": 23,
+  "version": "3.2.9",
+  "build": 24,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.2.8 build 23",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.8-build23/PokeChiacchere-v3.2.8-build23.ipa"
+  "notes": "Versione 3.2.9 build 24",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.2.9-build24/PokeChiacchere-v3.2.9-build24.ipa"
 }
