@@ -3083,7 +3083,7 @@ export default function App() {
     } catch (error) {
       const message = String(error && error.message ? error.message : error || 'Errore sconosciuto');
       if (/tiktok_(?:username|user_id|sec_uid|avatar_url|last_checked_at)|column .*does not exist/i.test(message)) {
-        Alert.alert('Configurazione Supabase mancante', 'Prima di importare, esegui in Supabase la migrazione supabase/migrations/20261016_customer_tiktok_username.sql. Dettaglio: ' + message);
+        Alert.alert('Configurazione Supabase mancante', 'Prima di importare, esegui in Supabase la migrazione supabase/migrations/20261016_customer_tiktok_identity.sql. Dettaglio: ' + message);
       } else {
         Alert.alert('Importazione non riuscita', message);
       }
