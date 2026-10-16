@@ -389,6 +389,8 @@ export default function App() {
   const [partnerHistoryBusy, setPartnerHistoryBusy] = useState(false);
   const [partnerHistoryVisible, setPartnerHistoryVisible] = useState(false);
   const [partnerPlaceLabel, setPartnerPlaceLabel] = useState('Luogo non disponibile');
+  const partnerMapRef = useRef(null);
+  const partnerMapLastCameraRef = useRef(null);
   const [backgroundRemovalProvider, setBackgroundRemovalProvider] = useState('poof');
   const [backgroundProviderReady, setBackgroundProviderReady] = useState(false);
 
@@ -4569,7 +4571,24 @@ export default function App() {
         updated_at: p.updated_at,
       };
       if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)) throw new Error('Le coordinate ricevute non sono valide.');
-      setPartnerMapLocation((old) => old && old.updated_at === next.updated_at ? old : next);
+      setPartnerMapLocation((old) => {
+        if (old && old.updated_at === next.updated_at &&
+            old.latitude === next.latitude && old.longitude === next.longitude &&
+            old.battery_level === next.battery_level) return old;
+        const movedMeters = old ? Math.abs(old.latitude - next.latitude) + Math.abs(old.longitude - next.longitude) : Infinity;
+        if (!old || movedMeters > 0.00003) {
+          partnerMapLastCameraRef.current = { latitude: next.latitude, longitude: next.longitude };
+          requestAnimationFrame(() => {
+            partnerMapRef.current?.animateToRegion({
+              latitude: next.latitude,
+              longitude: next.longitude,
+              latitudeDelta: 0.012,
+              longitudeDelta: 0.012,
+            }, old ? 350 : 0);
+          });
+        }
+        return next;
+      });
       setPartnerMapError('');
       return next;
     } catch (e) {
@@ -5164,19 +5183,23 @@ export default function App() {
           </View>
           {partnerMapLocation ? (
             <>
-              <MapView
+<MapView
+                ref={partnerMapRef}
                 style={{ flex: 1 }}
                 initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
-                region={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                 showsUserLocation={false}
-                mapType="mutedStandard"
-                showsCompass
-                showsScale
+                mapType="standard"
+                showsCompass={false}
+                showsScale={false}
                 showsBuildings={false}
                 showsTraffic={false}
+                toolbarEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+                loadingEnabled
               >
-                <Marker coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} title="Socio" description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')} />
-                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(22,139,255,0.8)" fillColor="rgba(22,139,255,0.18)" />}
+                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(22,139,255,0.9)" fillColor="rgba(22,139,255,0.14)" />}
+                <Marker coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} title="Socio" description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')} pinColor="#168BFF" tracksViewChanges={false} />
               </MapView>
               <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
                 <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
