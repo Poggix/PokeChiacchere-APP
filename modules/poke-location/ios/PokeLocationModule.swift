@@ -23,6 +23,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   private let apiKey = "sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9"
   private let ownerId = "01bf546e-bf28-46ac-8370-b4fe30d8a8fd"
   private let recoveryRegionId = "pokechiacchere-location-recovery"
+  private var latestLocation: CLLocation?
 
   private override init() {
     super.init()
@@ -32,6 +33,19 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
     manager.showsBackgroundLocationIndicator = false
+    UIDevice.current.isBatteryMonitoringEnabled = true
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(batteryLevelDidChange),
+      name: UIDevice.batteryLevelDidChangeNotification,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(batteryStateDidChange),
+      name: UIDevice.batteryStateDidChangeNotification,
+      object: nil
+    )
     if defaults.bool(forKey: "pokeLocationEnabled") { startServices() }
   }
 
@@ -121,6 +135,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
 
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
     guard defaults.bool(forKey: "pokeLocationEnabled"), let loc = locations.last else { return }
+    latestLocation = loc
     upload(loc, retried: false)
     if !manager.monitoredRegions.contains(where: { $0.identifier == recoveryRegionId }) {
       monitorRecoveryRegion(around: loc)
@@ -137,6 +152,43 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
 
   public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     NSLog("PokeLocation CoreLocation error: %@", error.localizedDescription)
+  }
+
+
+  @objc private func batteryLevelDidChange() {
+    refreshBatteryForLatestLocation()
+  }
+
+  @objc private func batteryStateDidChange() {
+    refreshBatteryForLatestLocation()
+  }
+
+  private func refreshBatteryForLatestLocation() {
+    guard defaults.bool(forKey: "pokeLocationEnabled"), let location = latestLocation else { return }
+    updateBatteryOnly(location)
+  }
+
+  private func updateBatteryOnly(_ location: CLLocation) {
+    guard let userId = defaults.string(forKey: "pokeLocationUserId"),
+          let token = defaults.string(forKey: "pokeLocationAccessToken") else { return }
+    let level = UIDevice.current.batteryLevel
+    guard level >= 0 else { return }
+    let percent = Int((level * 100).rounded())
+    let url = URL(string: "\(baseURL)/rest/v1/partner_locations?user_id=eq.\(userId)")!
+    var req = URLRequest(url: url)
+    req.httpMethod = "PATCH"
+    req.setValue(apiKey, forHTTPHeaderField: "apikey")
+    req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+    req.httpBody = try? JSONSerialization.data(withJSONObject: ["battery_level": percent])
+    URLSession.shared.dataTask(with: req) { _, response, error in
+      if let error = error {
+        NSLog("PokeLocation battery update error: %@", error.localizedDescription)
+      } else if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+        NSLog("PokeLocation battery HTTP %ld", http.statusCode)
+      }
+    }.resume()
   }
 
   private func monitorRecoveryRegion(around location: CLLocation) {
