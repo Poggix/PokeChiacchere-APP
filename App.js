@@ -3013,7 +3013,9 @@ export default function App() {
         const sameUsername = currentUsername.toLowerCase() === importedUsername.toLowerCase();
         const currentUserId = clean(customer.tiktok_user_id);
         const currentSecUid = clean(customer.tiktok_sec_uid);
-        if (sameUsername && currentUserId && currentSecUid) {
+        // Se l'identità è già salvata ma manca l'avatar, rifai il lookup:
+        // prima saltavamo il cliente e la foto non veniva mai recuperata.
+        if (sameUsername && currentUserId && currentSecUid && clean(customer.tiktok_avatar_url)) {
           alreadyCorrect += 1;
           continue;
         }
