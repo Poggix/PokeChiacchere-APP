@@ -988,7 +988,7 @@ export default function App() {
     if (showLoading) setPresenceLoading(true);
     try {
       const profileRows = await api('/rest/v1/member_profiles?select=*&order=updated_at.desc', token);
-      setProfiles(Array.isArray(profileRows) ? profileRows : []);
+      const nextProfileRows = Array.isArray(profileRows) ? profileRows : [];
       const first = (Array.isArray(profileRows) ? profileRows : []).find((p) => p.user_id === session.user.id);
       // Il polling della presenza non deve sovrascrivere i campi che l'utente sta modificando.
       if (!profileDirtyRef.current) {
@@ -1012,10 +1012,25 @@ export default function App() {
           });
         }
       });
-      setProfiles([...mergedProfiles.values()].map((p) => ({
+      const nextProfiles = [...mergedProfiles.values()].map((p) => ({
         ...p,
         presence: presenceList.find((x) => x.user_id === p.user_id) || null,
-      })));
+      }));
+      // Aggiorna lo stato React solo se cambia qualcosa di visibile nella pagina.
+      // I timestamp last_seen_at cambiano spesso, ma non devono ridisegnare tutta la schermata.
+      setProfiles((current) => {
+        const visibleSignature = (items) => JSON.stringify(items.map((p) => ({
+          user_id: p.user_id,
+          email: p.email,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          avatar_url: p.avatar_url,
+          app_version: p.presence?.app_version,
+          is_active: p.presence?.is_active,
+          last_opened_at: p.presence?.last_opened_at,
+        })));
+        return visibleSignature(current) === visibleSignature(nextProfiles) ? current : nextProfiles;
+      });
     } catch (e) {
       console.warn('Profilo/presenza non disponibili. Verifica lo script SQL Supabase:', e?.message || e);
     } finally {
