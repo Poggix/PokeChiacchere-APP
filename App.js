@@ -1154,34 +1154,9 @@ export default function App() {
     if (token) loadData();
   }, [token, loadData]);
 
-  // Ricarica i dati ogni volta che si cambia sezione.
-  useEffect(() => {
-    if (token && session?.user?.id) loadData();
-  }, [page, token, session?.user?.id, loadData]);
-
-  // Sincronizzazione quasi in tempo reale tra i dispositivi dei soci.
-  // Il polling viene sospeso quando l'app non è in primo piano.
-  useEffect(() => {
-    if (!token || !session?.user?.id) return;
-    let busy = false;
-    const syncIfActive = async () => {
-      if (AppState.currentState !== 'active' || busy) return;
-      busy = true;
-      try {
-        await loadData();
-      } finally {
-        busy = false;
-      }
-    };
-    const timer = setInterval(syncIfActive, 5000);
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') syncIfActive();
-    });
-    return () => {
-      clearInterval(timer);
-      subscription.remove();
-    };
-  }, [token, session?.user?.id, loadData]);
+  // I dati vengono caricati al login e dopo le operazioni di salvataggio.
+  // Evitiamo di ricaricare tutte le tabelle a ogni cambio pagina e ogni 5 secondi:
+  // quei setState ripetuti causavano aggiornamenti visibili e piccoli salti di scroll.
 
   async function signOut() {
     await AsyncStorage.removeItem('pokechiacchere_session').catch(() => {});
