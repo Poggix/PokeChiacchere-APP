@@ -982,9 +982,10 @@ export default function App() {
     return () => appStateSubscription.remove();
   }, [token, session?.user?.id, isOwner]);
 
-  const loadProfilesAndPresence = useCallback(async () => {
+  const loadProfilesAndPresence = useCallback(async (options = {}) => {
     if (!token || !session?.user?.id) return;
-    setPresenceLoading(true);
+    const showLoading = options.silent !== true;
+    if (showLoading) setPresenceLoading(true);
     try {
       const profileRows = await api('/rest/v1/member_profiles?select=*&order=updated_at.desc', token);
       setProfiles(Array.isArray(profileRows) ? profileRows : []);
@@ -1018,7 +1019,7 @@ export default function App() {
     } catch (e) {
       console.warn('Profilo/presenza non disponibili. Verifica lo script SQL Supabase:', e?.message || e);
     } finally {
-      setPresenceLoading(false);
+      if (showLoading) setPresenceLoading(false);
     }
   }, [token, session?.user?.id]);
 
@@ -1082,13 +1083,15 @@ export default function App() {
     };
   }, [token, session?.user?.id, loadProfilesAndPresence]);
 
-  // In Impostazioni carica l'attività soci quando si entra nella schermata.
-  // Non eseguire polling ogni 5 secondi: gli aggiornamenti continui di stato
-  // provocavano salti di scroll mentre l'utente stava leggendo la pagina.
+  // In Impostazioni manteniamo il polling ogni 5 secondi, ma in modalità silenziosa:
+  // aggiorna i dati senza mostrare spinner/cambiare il titolo del pulsante.
   useEffect(() => {
-    if (token && session?.user?.id && page === 'settings') {
-      loadProfilesAndPresence();
-    }
+    if (!token || !session?.user?.id || page !== 'settings') return;
+    loadProfilesAndPresence({ silent: true });
+    const presenceRefresh = setInterval(() => {
+      if (AppState.currentState === 'active') loadProfilesAndPresence({ silent: true });
+    }, 5000);
+    return () => clearInterval(presenceRefresh);
   }, [page, token, session?.user?.id, loadProfilesAndPresence]);
 
   useEffect(() => {
