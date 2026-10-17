@@ -1082,14 +1082,13 @@ export default function App() {
     };
   }, [token, session?.user?.id, loadProfilesAndPresence]);
 
-  // Nella schermata Impostazioni aggiorna frequentemente lo stato degli altri soci.
+  // In Impostazioni carica l'attività soci quando si entra nella schermata.
+  // Non eseguire polling ogni 5 secondi: gli aggiornamenti continui di stato
+  // provocavano salti di scroll mentre l'utente stava leggendo la pagina.
   useEffect(() => {
-    if (!token || !session?.user?.id || page !== 'settings') return;
-    loadProfilesAndPresence();
-    const presenceRefresh = setInterval(() => {
-      if (AppState.currentState === 'active') loadProfilesAndPresence();
-    }, 5000);
-    return () => clearInterval(presenceRefresh);
+    if (token && session?.user?.id && page === 'settings') {
+      loadProfilesAndPresence();
+    }
   }, [page, token, session?.user?.id, loadProfilesAndPresence]);
 
   useEffect(() => {
