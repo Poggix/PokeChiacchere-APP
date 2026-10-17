@@ -2537,7 +2537,7 @@ export default function App() {
                   {(() => {
                     const catalogProduct = (records.products || []).find((row) => String(row.name || '').toLowerCase() === String(item.product || '').toLowerCase());
                     return catalogProduct?.photo_url ? (
-                      <Image source={{ uri: catalogProduct.photo_url }} style={{ width: 64, height: 64, borderRadius: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55' }} resizeMode="cover" />
+                      <Image source={{ uri: catalogProduct.photo_url, cache: 'force-cache' }} style={{ width: 64, height: 64, borderRadius: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55' }} resizeMode="cover" />
                     ) : null;
                   })()}
                 </View>
@@ -3327,7 +3327,7 @@ export default function App() {
             ]}>
             {isProduct && (
               row.photo_url
-                ? <Image source={{ uri: row.photo_url }} style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card }} resizeMode="cover" />
+                ? <Image source={{ uri: row.photo_url, cache: 'force-cache' }} style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card }} resizeMode="cover" />
                 : <View style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.muted, fontSize: 22 }}>▧</Text></View>
             )}
             <View style={{ flex: 1, minWidth: 0 }}>
