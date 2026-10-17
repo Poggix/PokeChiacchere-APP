@@ -19,34 +19,52 @@ function normalizeUsername(value: unknown): string | null {
   return /^[a-zA-Z0-9._]{2,32}$/.test(username) ? username : null;
 }
 
-function avatarUrl(value: unknown): string {
-  if (typeof value === "string") return value.trim();
+function avatarUrl(value: unknown, depth = 0): string {
+  if (depth > 5 || value == null) return "";
+  if (typeof value === "string") {
+    const candidate = value.trim();
+    return /^https?:\/\//i.test(candidate) ? candidate : "";
+  }
   if (Array.isArray(value)) {
     for (const item of value) {
-      const url = avatarUrl(item);
+      const url = avatarUrl(item, depth + 1);
       if (url) return url;
     }
     return "";
   }
-  if (value && typeof value === "object") {
+  if (typeof value === "object") {
     const data = value as Record<string, unknown>;
-    for (const candidate of [data.urlList, data.url_list, data.urls, data.uri, data.url]) {
-      const url = avatarUrl(candidate);
+    for (const key of ["urlList", "url_list", "urls", "uri", "url", "avatarLarger", "avatarMedium", "avatarThumb", "avatar_larger", "avatar_medium", "avatar_thumb", "avatar", "avatar_300x300", "avatar_168x168", "avatar_100x100"]) {
+      const url = avatarUrl(data[key], depth + 1);
       if (url) return url;
     }
   }
   return "";
 }
 
+function firstAvatar(user: Record<string, any>): string {
+  for (const value of [
+    user.avatarLarger, user.avatar_larger, user.avatarLarge, user.avatar_large,
+    user.avatarMedium, user.avatar_medium, user.avatarThumb, user.avatar_thumb,
+    user.avatar_300x300, user.avatar_168x168, user.avatar_100x100, user.avatar,
+    user.profilePicture, user.profile_picture, user.avatarUri, user.avatar_uri,
+  ]) {
+    const url = avatarUrl(value);
+    if (url) return url;
+  }
+  return "";
+}
+
 function normalizeProfile(user: Record<string, any>) {
+  const avatar = firstAvatar(user);
   return {
     id: user.id == null ? "" : String(user.id),
     sec_uid: user.secUid == null ? String(user.sec_uid || "") : String(user.secUid),
     unique_id: String(user.uniqueId || user.unique_id || ""),
     nickname: String(user.nickname || ""),
-    avatar_larger: avatarUrl(user.avatarLarger || user.avatar_larger || user.avatar_large),
-    avatar_medium: avatarUrl(user.avatarMedium || user.avatar_medium),
-    avatar_thumb: avatarUrl(user.avatarThumb || user.avatar_thumb),
+    avatar_larger: avatar,
+    avatar_medium: avatar,
+    avatar_thumb: avatar,
     verified: Boolean(user.verified),
     private_account: Boolean(user.privateAccount ?? user.private_account),
   };
