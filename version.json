@@ -1,8 +1,8 @@
 {
-  "version": "3.4.7",
-  "build": 36,
+  "version": "3.4.8",
+  "build": 37,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.4.7 build 36",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.7-build36/PokeChiacchere-v3.4.7-build36.ipa"
+  "notes": "Correzione recupero foto profilo TikTok mancanti",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.8-build37/PokeChiacchere-v3.4.8-build37.ipa"
 }
