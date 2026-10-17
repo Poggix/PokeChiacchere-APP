@@ -19,15 +19,34 @@ function normalizeUsername(value: unknown): string | null {
   return /^[a-zA-Z0-9._]{2,32}$/.test(username) ? username : null;
 }
 
+function avatarUrl(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const url = avatarUrl(item);
+      if (url) return url;
+    }
+    return "";
+  }
+  if (value && typeof value === "object") {
+    const data = value as Record<string, unknown>;
+    for (const candidate of [data.urlList, data.url_list, data.urls, data.uri, data.url]) {
+      const url = avatarUrl(candidate);
+      if (url) return url;
+    }
+  }
+  return "";
+}
+
 function normalizeProfile(user: Record<string, any>) {
   return {
     id: user.id == null ? "" : String(user.id),
     sec_uid: user.secUid == null ? String(user.sec_uid || "") : String(user.secUid),
     unique_id: String(user.uniqueId || user.unique_id || ""),
     nickname: String(user.nickname || ""),
-    avatar_larger: String(user.avatarLarger || user.avatar_larger || ""),
-    avatar_medium: String(user.avatarMedium || user.avatar_medium || ""),
-    avatar_thumb: String(user.avatarThumb || user.avatar_thumb || ""),
+    avatar_larger: avatarUrl(user.avatarLarger || user.avatar_larger || user.avatar_large),
+    avatar_medium: avatarUrl(user.avatarMedium || user.avatar_medium),
+    avatar_thumb: avatarUrl(user.avatarThumb || user.avatar_thumb),
     verified: Boolean(user.verified),
     private_account: Boolean(user.privateAccount ?? user.private_account),
   };
