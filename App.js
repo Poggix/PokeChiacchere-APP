@@ -8,6 +8,7 @@ import PokeLocation from './modules/poke-location';
 import MapView, { Marker, Circle, Polyline, UrlTile } from 'react-native-maps';
 import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
+import { Image as ExpoImage } from 'expo-image';
 import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -2537,7 +2538,7 @@ export default function App() {
                   {(() => {
                     const catalogProduct = (records.products || []).find((row) => String(row.name || '').toLowerCase() === String(item.product || '').toLowerCase());
                     return catalogProduct?.photo_url ? (
-                      <Image source={{ uri: catalogProduct.photo_url, cache: 'force-cache' }} style={{ width: 64, height: 64, borderRadius: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55' }} resizeMode="cover" />
+                      <ExpoImage source={{ uri: catalogProduct.photo_url }} cachePolicy="memory-disk" style={{ width: 64, height: 64, borderRadius: 9, backgroundColor: C.card, borderWidth: 1, borderColor: C.border || '#2B3C55' }} resizeMode="cover" />
                     ) : null;
                   })()}
                 </View>
@@ -3327,7 +3328,7 @@ export default function App() {
             ]}>
             {isProduct && (
               row.photo_url
-                ? <Image source={{ uri: row.photo_url, cache: 'force-cache' }} style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card }} resizeMode="cover" />
+                ? <ExpoImage source={{ uri: row.photo_url }} cachePolicy="memory-disk" style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card }} resizeMode="cover" />
                 : <View style={{ width: 58, height: 58, borderRadius: 10, marginRight: 12, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: C.muted, fontSize: 22 }}>▧</Text></View>
             )}
             <View style={{ flex: 1, minWidth: 0 }}>
