@@ -90,7 +90,7 @@ function avatarFromMeta(html: string): string {
   for (const tag of tags) {
     if (!/(?:property|name)=[\"'](?:og:image|twitter:image)[\"']/i.test(tag)) continue;
     const match = tag.match(/content=[\"']([^\"']+)[\"']/i);
-    if (match?.[1] && /^https?:\\/\\//i.test(match[1])) {
+    if (match?.[1] && /^https?:\/\//i.test(match[1])) {
       return match[1].replace(/&amp;/g, "&");
     }
   }
