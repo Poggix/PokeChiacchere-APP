@@ -43,14 +43,56 @@ function avatarUrl(value: unknown, depth = 0): string {
 }
 
 function firstAvatar(user: Record<string, any>): string {
-  for (const value of [
+  const preferred = [
     user.avatarLarger, user.avatar_larger, user.avatarLarge, user.avatar_large,
     user.avatarMedium, user.avatar_medium, user.avatarThumb, user.avatar_thumb,
     user.avatar_300x300, user.avatar_168x168, user.avatar_100x100, user.avatar,
     user.profilePicture, user.profile_picture, user.avatarUri, user.avatar_uri,
-  ]) {
+    user.profilePhoto, user.profile_photo, user.photo, user.picture,
+  ];
+  for (const value of preferred) {
     const url = avatarUrl(value);
     if (url) return url;
+  }
+
+  // TikTok changes avatar field names between response versions. Search nested
+  // user objects for avatar/photo fields without logging or returning raw profile data.
+  const visited = new Set<object>();
+  function scan(value: unknown, depth = 0): string {
+    if (depth > 6 || value == null || typeof value !== "object") return "";
+    if (visited.has(value as object)) return "";
+    visited.add(value as object);
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = scan(item, depth + 1);
+        if (found) return found;
+      }
+      return "";
+    }
+    const record = value as Record<string, unknown>;
+    for (const [key, item] of Object.entries(record)) {
+      if (/avatar|profile.?photo|profile.?picture/i.test(key)) {
+        const found = avatarUrl(item);
+        if (found) return found;
+      }
+    }
+    for (const item of Object.values(record)) {
+      const found = scan(item, depth + 1);
+      if (found) return found;
+    }
+    return "";
+  }
+  return scan(user);
+}
+
+function avatarFromMeta(html: string): string {
+  const tags = html.match(/<meta\\b[^>]*>/gi) || [];
+  for (const tag of tags) {
+    if (!/(?:property|name)=[\"'](?:og:image|twitter:image)[\"']/i.test(tag)) continue;
+    const match = tag.match(/content=[\"']([^\"']+)[\"']/i);
+    if (match?.[1] && /^https?:\\/\\//i.test(match[1])) {
+      return match[1].replace(/&amp;/g, "&");
+    }
   }
   return "";
 }
@@ -202,6 +244,16 @@ async function lookupByUsername(username: string) {
   const profile = normalizeProfile(rawUser);
   if (!profile.id || !profile.sec_uid || !profile.unique_id) {
     throw new Error("TikTok non ha fornito tutti gli identificativi del profilo.");
+  }
+
+  // Some private-profile page responses expose the avatar only in Open Graph metadata.
+  if (!profile.avatar_larger) {
+    const metaAvatar = avatarFromMeta(html);
+    if (metaAvatar) {
+      profile.avatar_larger = metaAvatar;
+      profile.avatar_medium = metaAvatar;
+      profile.avatar_thumb = metaAvatar;
+    }
   }
   return profile;
 }
