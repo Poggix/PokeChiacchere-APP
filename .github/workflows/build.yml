@@ -126,7 +126,18 @@ jobs:
                version.json > version.json.tmp
             mv version.json.tmp version.json
 
-            git add version.json
+            IPA_SIZE=$(stat -f%z "$IPA_PATH")
+            RELEASE_DATE=$(date -u +%Y-%m-%d)
+            jq --arg version "$VERSION" \
+               --arg date "$RELEASE_DATE" \
+               --arg url "$DOWNLOAD_URL" \
+               --argjson size "$IPA_SIZE" \
+               --arg notes "$notes" \
+               '.apps[0].versions = ([{"version":$version,"date":$date,"downloadURL":$url,"size":$size,"localizedDescription":("Versione " + $version)}] + (.apps[0].versions | map(select(.version != $version))))' \
+               sidestore-source.json > sidestore-source.json.tmp
+            mv sidestore-source.json.tmp sidestore-source.json
+
+            git add version.json sidestore-source.json
             if git diff --cached --quiet; then
               echo "version.json è già aggiornato."
               break
