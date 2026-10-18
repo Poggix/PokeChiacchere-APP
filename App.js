@@ -5403,22 +5403,26 @@ export default function App() {
                   <Text style={{ color: '#101828', fontSize: 17, fontWeight: '900' }}>{partnerHistory.length} posizioni registrate</Text>
                   <Text style={{ color: '#667085', fontSize: 12, marginTop: 3 }}>Ultime registrazioni GPS ricevute dal telefono</Text>
                 </View>
-                <ScrollView style={{ maxHeight: '43%', backgroundColor: '#FFFFFF' }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
+                <ScrollView style={{ flex: 1, backgroundColor: '#F4F4F8' }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 30 }}>
                   {getPartnerHistoryDateGroups().map((group) => (
-                    <View key={group.key}>
-                      <View style={{ paddingTop: 15, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#D0D5DD', marginBottom: 2 }}>
-                        <Text style={{ color: '#2F80ED', fontSize: 12, fontWeight: '900', textTransform: 'capitalize' }}>{group.label}</Text>
-                        <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 2 }}>{group.points.length} {group.points.length === 1 ? 'posizione' : 'posizioni'}</Text>
+                    <View key={group.key} style={{ marginBottom: 18 }}>
+                      <View style={{ backgroundColor: '#FFFFFF', borderRadius: 22, paddingHorizontal: 20, paddingVertical: 16, marginBottom: 13, shadowColor: '#101828', shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 }}>
+                        <Text style={{ color: '#171725', fontSize: 18, fontWeight: '900', textTransform: 'capitalize' }}>{group.label}</Text>
+                        <Text style={{ color: '#777789', fontSize: 12, marginTop: 5 }}>{group.points.length} posizioni registrate</Text>
                       </View>
                       {group.points.map((point) => (
-                        <View key={point._historyKey} style={{ flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
-                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
-                            <Text style={{ color: '#2F80ED', fontSize: 17 }}>⌖</Text>
+                        <View key={point._historyKey} style={{ backgroundColor: '#FFFFFF', borderRadius: 22, padding: 17, marginBottom: 11, borderWidth: 1, borderColor: '#ECECF2', shadowColor: '#101828', shadowOpacity: 0.05, shadowRadius: 9, elevation: 2 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: '#171725', fontSize: 16, fontWeight: '900' }}>Posizione registrata</Text>
+                              <Text style={{ color: '#777789', fontSize: 13, marginTop: 7 }}>{new Date(point.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
+                            </View>
+                            <View style={{ width: 45, height: 45, borderRadius: 16, backgroundColor: '#F1EAFE', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7138D5', fontSize: 23 }}>⌖</Text></View>
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: '#101828', fontWeight: '800', fontSize: 13 }}>{new Date(point.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text>
-                            <Text style={{ color: '#667085', fontSize: 11, marginTop: 4 }}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}</Text>
-                            <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}{point.battery_level == null ? '' : ' · Batteria ' + point.battery_level + '%'}</Text>
+                          <Text style={{ color: '#777789', fontSize: 12, marginTop: 12 }}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}</Text>
+                          <View style={{ backgroundColor: '#F7F4FB', borderRadius: 14, padding: 11, marginTop: 13, flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={{ color: '#49356C', fontSize: 11, fontWeight: '800' }}>Precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}</Text>
+                            <Text style={{ color: '#777789', fontSize: 11 }}>{point.battery_level == null ? '' : 'Batteria ' + point.battery_level + '%'}</Text>
                           </View>
                         </View>
                       ))}
