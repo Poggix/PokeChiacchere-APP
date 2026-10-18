@@ -4664,6 +4664,59 @@ export default function App() {
     await loadPartnerHistory(true);
   }
 
+  function getPartnerDistanceMeters(a, b) {
+    const rad = (v) => v * Math.PI / 180;
+    const dLat = rad(b.latitude - a.latitude);
+    const dLon = rad(b.longitude - a.longitude);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  }
+
+  function getPartnerPointSpeedKmh(a, b) {
+    if (!a || !b) return null;
+    const seconds = (new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()) / 1000;
+    if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 900) return null;
+    const accuracy = Math.max(Number(a.accuracy) || 0, Number(b.accuracy) || 0);
+    const meters = getPartnerDistanceMeters(a, b);
+    if (meters <= Math.max(12, accuracy * 0.7)) return 0;
+    return meters / seconds * 3.6;
+  }
+
+  function getPartnerTripsForDay(points) {
+    const chronological = points.slice().sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
+    const trips = [];
+    let current = null;
+    chronological.forEach((point, index) => {
+      const prev = chronological[index - 1];
+      if (!prev) return;
+      const seconds = (new Date(point.recorded_at).getTime() - new Date(prev.recorded_at).getTime()) / 1000;
+      const meters = getPartnerDistanceMeters(prev, point);
+      const speed = getPartnerPointSpeedKmh(prev, point);
+      const accuracy = Math.max(Number(prev.accuracy) || 0, Number(point.accuracy) || 0);
+      const moving = seconds > 0 && seconds <= 600 && meters > Math.max(35, accuracy * 1.5) && speed != null && speed >= 2.5;
+      if (moving) {
+        if (!current || seconds > 240 || getPartnerDistanceMeters(current.points[current.points.length - 1], prev) > 450) {
+          current = { key: String(prev._historyKey || prev.recorded_at), points: [prev], meters: 0, speeds: [], maxSpeed: 0 };
+          trips.push(current);
+        }
+        current.points.push(point);
+        current.meters += meters;
+        current.speeds.push(speed);
+        current.maxSpeed = Math.max(current.maxSpeed, speed);
+      } else if (current && (seconds > 240 || meters < 20)) {
+        current = null;
+      }
+    });
+    return trips.filter((trip) => trip.meters >= 120 && trip.points.length >= 2).map((trip) => {
+      const start = trip.points[0];
+      const end = trip.points[trip.points.length - 1];
+      const durationMinutes = Math.max(1, Math.round((new Date(end.recorded_at) - new Date(start.recorded_at)) / 60000));
+      const averageSpeed = durationMinutes > 0 ? trip.meters / 1000 / (durationMinutes / 60) : 0;
+      const likelyVehicle = trip.maxSpeed >= 22 || averageSpeed >= 16;
+      return { ...trip, start, end, durationMinutes, averageSpeed, mode: likelyVehicle ? 'Probabilmente in auto' : 'Probabilmente a piedi' };
+    });
+  }
+
   function getPartnerHistoryDateGroups() {
     const groups = new Map();
     partnerHistory.slice().reverse().forEach((point, index) => {
@@ -5251,6 +5304,28 @@ export default function App() {
                       <Text style={{ color: '#171725', fontSize: 19, fontWeight: '900', textTransform: 'capitalize' }}>{group.label}</Text>
                       <Text style={{ color: '#777789', fontSize: 12, marginTop: 5 }}>{group.points.length} posizioni registrate</Text>
                     </View>
+                    {getPartnerTripsForDay(group.points).slice().reverse().map((trip) => {
+                      const startTime = new Date(trip.start.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                      const endTime = new Date(trip.end.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                      const coordinates = trip.points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
+                      return <View key={'trip-' + trip.key} style={{ backgroundColor: '#FFFFFF', borderRadius: 25, overflow: 'hidden', marginBottom: 14, borderWidth: 1, borderColor: '#EAEAF0', elevation: 2 }}>
+                        <MapView style={{ height: 190, width: '100%' }} initialRegion={{ latitude: trip.end.latitude, longitude: trip.end.longitude, latitudeDelta: 0.08, longitudeDelta: 0.08 }} mapType="standard" scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false} toolbarEnabled={false}>
+                          <Polyline coordinates={coordinates} strokeColor="#7138D5" strokeWidth={5} />
+                          <Marker coordinate={coordinates[0]} title="Partenza" pinColor="#16A34A" />
+                          <Marker coordinate={coordinates[coordinates.length - 1]} title="Arrivo" pinColor="#7138D5" />
+                        </MapView>
+                        <View style={{ paddingHorizontal: 18, paddingVertical: 16 }}>
+                          <Text style={{ color: '#171725', fontSize: 18, fontWeight: '900' }}>{trip.mode}</Text>
+                          <Text style={{ color: '#777789', fontSize: 13, marginTop: 7 }}>{startTime} – {endTime} · {(trip.meters / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km</Text>
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+                            <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>VELOCITÀ MEDIA</Text><Text style={{ color: '#49356C', fontSize: 18, fontWeight: '900', marginTop: 5 }}>{Math.round(trip.averageSpeed)} km/h</Text></View>
+                            <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>VELOCITÀ MAX</Text><Text style={{ color: '#49356C', fontSize: 18, fontWeight: '900', marginTop: 5 }}>{Math.round(trip.maxSpeed)} km/h</Text></View>
+                          </View>
+                          <Text style={{ color: '#777789', fontSize: 11, marginTop: 10 }}>Durata {trip.durationMinutes} min · classificazione stimata dai punti GPS</Text>
+                        </View>
+                      </View>;
+                    })}
+                    {getPartnerTripsForDay(group.points).length === 0 && <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, marginBottom: 12 }}><Text style={{ color: '#777789', fontSize: 13 }}>Nessuno spostamento distinguibile dai dati GPS di questa giornata.</Text></View>}
                     {group.points.map((point, index) => {
                       const previous = group.points[index + 1];
                       return <View key={point._historyKey} style={{ backgroundColor: '#FFFFFF', borderRadius: 25, overflow: 'hidden', marginBottom: 14, borderWidth: 1, borderColor: '#EAEAF0', elevation: 2 }}>
@@ -5373,6 +5448,25 @@ export default function App() {
                       <Text style={{ color: '#101828', fontSize: 14, fontWeight: '800' }}>{partnerPlaceLabel || 'Luogo non disponibile'}</Text>
                       <Text style={{ color: '#667085', fontSize: 11, marginTop: 3 }}>{getPartnerStayLabel()}</Text>
                       <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Aggiornato {new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · Precisione {partnerMapLocation.accuracy == null ? 'n/d' : Math.round(partnerMapLocation.accuracy) + ' m'}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
+                    <View style={{ flex: 1, borderRadius: 15, backgroundColor: '#F1EAFE', padding: 12 }}>
+                      <Text style={{ color: '#7138D5', fontSize: 10, fontWeight: '900' }}>VELOCITÀ STIMATA</Text>
+                      <Text style={{ color: '#24143D', fontSize: 23, fontWeight: '900', marginTop: 4 }}>{(() => {
+                        const points = partnerHistory.slice().sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
+                        const latest = points[points.length - 1];
+                        const speed = latest && partnerMapLocation ? getPartnerPointSpeedKmh(latest, { ...partnerMapLocation, recorded_at: partnerMapLocation.updated_at }) : null;
+                        return speed == null ? '— km/h' : Math.round(speed) + ' km/h';
+                      })()}</Text>
+                    </View>
+                    <View style={{ flex: 1, borderRadius: 15, backgroundColor: '#F2F4F7', padding: 12 }}>
+                      <Text style={{ color: '#667085', fontSize: 10, fontWeight: '900' }}>SPOSTAMENTO</Text>
+                      <Text style={{ color: '#101828', fontSize: 14, fontWeight: '900', marginTop: 7 }}>{(() => {
+                        const trips = getPartnerTripsForDay(partnerHistory);
+                        const last = trips[trips.length - 1];
+                        return last && Date.now() - new Date(last.end.recorded_at).getTime() < 10 * 60 * 1000 ? 'In movimento' : 'Fermo / dato insufficiente';
+                      })()}</Text>
                     </View>
                   </View>
                   <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#2F80ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
