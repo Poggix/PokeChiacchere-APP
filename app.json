@@ -2,7 +2,7 @@
   "expo": {
     "name": "PokeChiacchere",
     "slug": "pokechiacchere",
-    "version": "3.4.16",
+    "version": "3.4.17",
     "icon": "./assets/icon.png",
     "plugins": [
       "expo-notifications",
@@ -20,7 +20,7 @@
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
       "icon": "./assets/icon.png",
-      "buildNumber": "45",
+      "buildNumber": "46",
       "entitlements": {
         "aps-environment": "development"
       },
