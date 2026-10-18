@@ -5297,55 +5297,30 @@ export default function App() {
                 <View style={{ flex: 1 }}><Text style={{ color: '#171725', fontSize: 21, fontWeight: '900' }}>Cronologia spostamenti</Text><Text style={{ color: '#777789', fontSize: 13, marginTop: 3 }}>Percorsi e posizioni registrate</Text></View>
                 <TouchableOpacity onPress={() => loadPartnerHistory(true)} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: '#EEE7FC', alignItems: 'center', justifyContent: 'center' }}>{partnerHistoryBusy ? <ActivityIndicator color="#7138D5" /> : <Text style={{ color: '#7138D5', fontSize: 25, fontWeight: '800' }}>↻</Text>}</TouchableOpacity>
               </View>
-              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}>
-                {getPartnerHistoryDateGroups().map((group) => (
-                  <View key={group.key} style={{ marginBottom: 22 }}>
+                            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}>
+                {partnerHistory.length === 0 ? (
+                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 22, padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: '#777789', fontSize: 14, textAlign: 'center' }}>{partnerHistoryBusy ? 'Caricamento cronologia…' : 'Nessuna posizione registrata.'}</Text>
+                  </View>
+                ) : getPartnerHistoryDateGroups().map((group) => {
+                  const trips = getPartnerTripsForDay(group.points);
+                  return <View key={group.key} style={{ marginBottom: 22 }}>
                     <View style={{ backgroundColor: '#FFFFFF', borderRadius: 22, paddingHorizontal: 21, paddingVertical: 17, marginBottom: 14, elevation: 2 }}>
                       <Text style={{ color: '#171725', fontSize: 19, fontWeight: '900', textTransform: 'capitalize' }}>{group.label}</Text>
-                      <Text style={{ color: '#777789', fontSize: 12, marginTop: 5 }}>{group.points.length} posizioni registrate</Text>
+                      <Text style={{ color: '#777789', fontSize: 12, marginTop: 5 }}>{trips.length} spostamenti rilevati · {group.points.length} punti GPS</Text>
                     </View>
-                    {getPartnerTripsForDay(group.points).slice().reverse().map((trip) => {
-                      const startTime = new Date(trip.start.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                      const endTime = new Date(trip.end.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                      const coordinates = trip.points.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
-                      return <View key={'trip-' + trip.key} style={{ backgroundColor: '#FFFFFF', borderRadius: 25, overflow: 'hidden', marginBottom: 14, borderWidth: 1, borderColor: '#EAEAF0', elevation: 2 }}>
-                        <MapView style={{ height: 190, width: '100%' }} initialRegion={{ latitude: trip.end.latitude, longitude: trip.end.longitude, latitudeDelta: 0.08, longitudeDelta: 0.08 }} mapType="standard" scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false} toolbarEnabled={false}>
-                          <Polyline coordinates={coordinates} strokeColor="#7138D5" strokeWidth={5} />
-                          <Marker coordinate={coordinates[0]} title="Partenza" pinColor="#16A34A" />
-                          <Marker coordinate={coordinates[coordinates.length - 1]} title="Arrivo" pinColor="#7138D5" />
-                        </MapView>
-                        <View style={{ paddingHorizontal: 18, paddingVertical: 16 }}>
-                          <Text style={{ color: '#171725', fontSize: 18, fontWeight: '900' }}>{trip.mode}</Text>
-                          <Text style={{ color: '#777789', fontSize: 13, marginTop: 7 }}>{startTime} – {endTime} · {(trip.meters / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km</Text>
-                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
-                            <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>VELOCITÀ MEDIA</Text><Text style={{ color: '#49356C', fontSize: 18, fontWeight: '900', marginTop: 5 }}>{Math.round(trip.averageSpeed)} km/h</Text></View>
-                            <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>VELOCITÀ MAX</Text><Text style={{ color: '#49356C', fontSize: 18, fontWeight: '900', marginTop: 5 }}>{Math.round(trip.maxSpeed)} km/h</Text></View>
-                          </View>
-                          <Text style={{ color: '#777789', fontSize: 11, marginTop: 10 }}>Durata {trip.durationMinutes} min · classificazione stimata dai punti GPS</Text>
-                        </View>
-                      </View>;
-                    })}
-                    {getPartnerTripsForDay(group.points).length === 0 && <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, marginBottom: 12 }}><Text style={{ color: '#777789', fontSize: 13 }}>Nessuno spostamento distinguibile dai dati GPS di questa giornata.</Text></View>}
-                    {group.points.map((point, index) => {
-                      const previous = group.points[index + 1];
-                      return <View key={point._historyKey} style={{ backgroundColor: '#FFFFFF', borderRadius: 25, overflow: 'hidden', marginBottom: 14, borderWidth: 1, borderColor: '#EAEAF0', elevation: 2 }}>
-                        <MapView style={{ height: 170, width: '100%' }} initialRegion={{ latitude: point.latitude, longitude: point.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }} mapType="standard" scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false} toolbarEnabled={false}>
-                          {previous ? <Polyline coordinates={[{ latitude: previous.latitude, longitude: previous.longitude }, { latitude: point.latitude, longitude: point.longitude }]} strokeColor="#7138D5" strokeWidth={5} /> : null}
-                          <Marker coordinate={{ latitude: point.latitude, longitude: point.longitude }} pinColor="#7138D5" />
-                        </MapView>
-                        <View style={{ paddingHorizontal: 18, paddingVertical: 16 }}>
-                          <Text style={{ color: '#171725', fontSize: 17, fontWeight: '900' }}>Posizione GPS registrata</Text>
-                          <Text style={{ color: '#777789', fontSize: 13, marginTop: 7 }}>{new Date(point.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · {point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}</Text>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 13, backgroundColor: '#F5F1FB', borderRadius: 15, padding: 11 }}>
-                            <Text style={{ color: '#49356C', fontSize: 12, fontWeight: '800' }}>Precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}</Text>
-                            <Text style={{ color: '#49356C', fontSize: 12, fontWeight: '800' }}>{point.battery_level == null ? 'Batteria n/d' : 'Batteria ' + point.battery_level + '%'}</Text>
-                          </View>
-                        </View>
-                      </View>;
-                    })}
-                  </View>
-                ))}
-                {!partnerHistory.length && <Text style={{ textAlign: 'center', color: '#777789', padding: 24 }}>{partnerHistoryBusy ? 'Caricamento cronologia…' : 'Nessuna posizione registrata.'}</Text>}
+                    {trips.slice().reverse().map((trip) => <View key={'trip-' + trip.key} style={{ backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#EAEAF0', elevation: 1 }}>
+                      <Text style={{ color: '#171725', fontSize: 17, fontWeight: '900' }}>{trip.mode}</Text>
+                      <Text style={{ color: '#777789', fontSize: 13, marginTop: 7 }}>{new Date(trip.start.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} – {new Date(trip.end.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 13 }}>
+                        <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>DISTANZA</Text><Text style={{ color: '#49356C', fontSize: 17, fontWeight: '900', marginTop: 4 }}>{(trip.meters / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km</Text></View>
+                        <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>MEDIA / MAX</Text><Text style={{ color: '#49356C', fontSize: 17, fontWeight: '900', marginTop: 4 }}>{Math.round(trip.averageSpeed)} / {Math.round(trip.maxSpeed)} km/h</Text></View>
+                      </View>
+                      <Text style={{ color: '#8B8798', fontSize: 11, marginTop: 9 }}>Durata {trip.durationMinutes} min · stima dai dati GPS</Text>
+                    </View>)}
+                    {trips.length === 0 && <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18 }}><Text style={{ color: '#777789', fontSize: 13 }}>Non ci sono abbastanza punti GPS per identificare uno spostamento in questa giornata.</Text></View>}
+                  </View>;
+                })}
               </ScrollView>
             </View>
           ) : (
@@ -5450,25 +5425,17 @@ export default function App() {
                       <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Aggiornato {new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · Precisione {partnerMapLocation.accuracy == null ? 'n/d' : Math.round(partnerMapLocation.accuracy) + ' m'}</Text>
                     </View>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 9, marginTop: 14 }}>
-                    <View style={{ flex: 1, borderRadius: 15, backgroundColor: '#F1EAFE', padding: 12 }}>
-                      <Text style={{ color: '#7138D5', fontSize: 10, fontWeight: '900' }}>VELOCITÀ STIMATA</Text>
-                      <Text style={{ color: '#24143D', fontSize: 23, fontWeight: '900', marginTop: 4 }}>{(() => {
-                        const points = partnerHistory.slice().sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
-                        const latest = points[points.length - 1];
-                        const speed = latest && partnerMapLocation ? getPartnerPointSpeedKmh(latest, { ...partnerMapLocation, recorded_at: partnerMapLocation.updated_at }) : null;
-                        return speed == null ? '— km/h' : Math.round(speed) + ' km/h';
-                      })()}</Text>
-                    </View>
-                    <View style={{ flex: 1, borderRadius: 15, backgroundColor: '#F2F4F7', padding: 12 }}>
-                      <Text style={{ color: '#667085', fontSize: 10, fontWeight: '900' }}>SPOSTAMENTO</Text>
-                      <Text style={{ color: '#101828', fontSize: 14, fontWeight: '900', marginTop: 7 }}>{(() => {
-                        const trips = getPartnerTripsForDay(partnerHistory);
-                        const last = trips[trips.length - 1];
-                        return last && Date.now() - new Date(last.end.recorded_at).getTime() < 10 * 60 * 1000 ? 'In movimento' : 'Fermo / dato insufficiente';
-                      })()}</Text>
-                    </View>
-                  </View>
+                  {(() => {
+                    const points = partnerHistory.slice().sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
+                    const latest = points[points.length - 1];
+                    const previous = points[points.length - 2];
+                    const speed = latest && previous ? getPartnerPointSpeedKmh(previous, latest) : null;
+                    const moving = speed != null && speed >= 3 && Date.now() - new Date(latest.recorded_at).getTime() < 120000;
+                    if (!moving) return null;
+                    return <View style={{ marginTop: 14, borderRadius: 18, backgroundColor: '#7138D5', paddingHorizontal: 18, paddingVertical: 12, alignSelf: 'flex-start', shadowColor: '#000000', shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 }}>
+                      <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900' }}>{Math.round(speed)} <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>km/h</Text></Text>
+                    </View>;
+                  })()}
                   <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#2F80ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
                     {partnerHistoryBusy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>Cronologia degli spostamenti</Text>}
                   </TouchableOpacity>
