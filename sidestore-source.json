@@ -1,0 +1,25 @@
+{
+  "name": "PokeChiacchere",
+  "identifier": "it.poggix.pokechiacchere.source",
+  "sourceURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/sidestore-source.json",
+  "apps": [
+    {
+      "name": "PokeChiacchere",
+      "bundleIdentifier": "com.anonymous.pokechiacchere",
+      "developerName": "Poggix",
+      "subtitle": "Gestisci PokeChiacchere dal tuo iPhone",
+      "localizedDescription": "App PokeChiacchere. Gli aggiornamenti disponibili verranno mostrati in SideStore.",
+      "iconURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/assets/icon.png",
+      "tintColor": "#7B2CBF",
+      "versions": [
+        {
+          "version": "3.4.28",
+          "date": "2026-10-18",
+          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.28-build57/PokeChiacchere-v3.4.28-build57.ipa",
+          "size": 1,
+          "localizedDescription": "Versione 3.4.28 build 57"
+        }
+      ]
+    }
+  ]
+}
