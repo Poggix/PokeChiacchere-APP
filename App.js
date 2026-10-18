@@ -992,12 +992,16 @@ export default function App() {
     try {
       const profileRows = await api('/rest/v1/member_profiles?select=*&order=updated_at.desc', token);
       const nextProfileRows = Array.isArray(profileRows) ? profileRows : [];
-      const first = (Array.isArray(profileRows) ? profileRows : []).find((p) => p.user_id === session.user.id);
-      // Il polling della presenza non deve sovrascrivere i campi che l'utente sta modificando.
+      const first = nextProfileRows.find((p) => p.user_id === session.user.id);
+      // Aggiorna i campi del profilo solo se sono cambiati davvero: evitare setState
+      // a ogni polling riduce i re-render dell'intera schermata Impostazioni.
       if (!profileDirtyRef.current) {
-        setProfileFirstName(first?.first_name || session.user.user_metadata?.first_name || '');
-        setProfileLastName(first?.last_name || session.user.user_metadata?.last_name || '');
-        setProfilePhotoUrl(first?.avatar_url || session.user.user_metadata?.avatar_url || '');
+        const nextFirstName = first?.first_name || session.user.user_metadata?.first_name || '';
+        const nextLastName = first?.last_name || session.user.user_metadata?.last_name || '';
+        const nextPhotoUrl = first?.avatar_url || session.user.user_metadata?.avatar_url || '';
+        if (nextFirstName !== profileFirstName) setProfileFirstName(nextFirstName);
+        if (nextLastName !== profileLastName) setProfileLastName(nextLastName);
+        if (nextPhotoUrl !== profilePhotoUrl) setProfilePhotoUrl(nextPhotoUrl);
       }
       // Il caricamento della schermata aggiorna i dati, non l'ultimo accesso effettivo.
       const presenceRows = await api('/rest/v1/member_presence?select=*&order=last_seen_at.desc', token);
@@ -1039,7 +1043,7 @@ export default function App() {
     } finally {
       if (showLoading) setPresenceLoading(false);
     }
-  }, [token, session?.user?.id]);
+  }, [token, session?.user?.id, profileFirstName, profileLastName, profilePhotoUrl]);
 
   // Registra l'apertura dell'app una volta per avvio/sessione, senza farla avanzare
   // per i polling, i refresh della schermata o i risvegli del tracker GPS.
