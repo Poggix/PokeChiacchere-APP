@@ -1,8 +1,8 @@
 {
-  "version": "3.4.18",
-  "build": 47,
+  "version": "3.4.19",
+  "build": 48,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.4.18 build 47",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.18-build47/PokeChiacchere-v3.4.18-build47.ipa"
+  "notes": "Versione 3.4.19 build 48 — corretto apertura pannello cronologia spostamenti",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.19-build48/PokeChiacchere-v3.4.19-build48.ipa"
 }
