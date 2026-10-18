@@ -5214,88 +5214,117 @@ export default function App() {
       </View>
 
       {pickerModal()}
-      <Modal visible={partnerMapVisible} animationType="slide" onRequestClose={() => setPartnerMapVisible(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-          <View style={[s.topBar, { justifyContent: 'space-between' }]}>
-            <View>
-              <Text style={s.brand}>POSIZIONE SOCIO</Text>
-              <Text style={s.topCaption}>AGGIORNAMENTO AUTOMATICO</Text>
-            </View>
-            <TouchableOpacity style={s.refresh} onPress={() => fetchPartnerMapLocation(true)}>
-              <Text style={s.refreshText}>↻</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.refresh, { width: 62 }]} onPress={() => setPartnerMapVisible(false)}>
-              <Text style={[s.buttonText, { color: C.red }]}>Chiudi</Text>
-            </TouchableOpacity>
-          </View>
-          {partnerMapLocation ? (
-            <>
-<MapView
+      <Modal visible={partnerMapVisible} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setPartnerMapVisible(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
+          <View style={{ flex: 1, backgroundColor: '#E9EEF2' }}>
+            {partnerMapLocation ? (
+              <MapView
                 ref={partnerMapRef}
                 style={{ flex: 1 }}
                 initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                 showsUserLocation={false}
-                mapType="none"
+                mapType="standard"
                 showsCompass={false}
                 showsScale={false}
-                showsBuildings={false}
+                showsBuildings
                 showsTraffic={false}
                 toolbarEnabled={false}
                 rotateEnabled={false}
                 pitchEnabled={false}
                 loadingEnabled
+                userInterfaceStyle="light"
               >
-                <UrlTile
-                  urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  maximumZ={19}
-                  tileSize={256}
-                  shouldReplaceMapContent
-                />
-                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(45,132,255,0.9)" fillColor="rgba(45,132,255,0.12)" />}
+                {partnerMapLocation.accuracy != null && <Circle center={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }} radius={Math.max(5, partnerMapLocation.accuracy)} strokeColor="rgba(47,128,237,0.65)" fillColor="rgba(47,128,237,0.13)" />}
                 <Marker
                   coordinate={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude }}
-                  title="Socio"
+                  title={[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}
                   description={'Ultimo aggiornamento: ' + new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT')}
                   tracksViewChanges={false}
                   anchor={{ x: 0.5, y: 0.5 }}
                 >
-                  <View style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
-                    <View style={{ position: 'absolute', width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(45,132,255,0.18)', borderWidth: 1, borderColor: 'rgba(45,132,255,0.30)' }} />
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#2D84FF', borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#00152E', shadowOpacity: 0.28, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' }} />
-                    </View>
+                  <View style={{ width: 58, height: 58, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ position: 'absolute', width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(47,128,237,0.16)', borderWidth: 1, borderColor: 'rgba(47,128,237,0.25)' }} />
+                    {profiles.find((p) => p.user_id !== OWNER_USER_ID)?.avatar_url ? (
+                      <Image source={{ uri: profiles.find((p) => p.user_id !== OWNER_USER_ID).avatar_url }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 3, borderColor: '#FFFFFF', backgroundColor: '#E5E7EB' }} />
+                    ) : (
+                      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#2F80ED', borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#17365D', shadowOpacity: 0.24, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 5 }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '900' }}>{(profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name?.[0] || profiles.find((p) => p.user_id !== OWNER_USER_ID)?.email?.[0] || 'S').toUpperCase()}</Text>
+                      </View>
+                    )}
                   </View>
                 </Marker>
               </MapView>
-              <View style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#F7F8FA', alignItems: 'flex-end' }}>
-                <Text style={{ color: '#687385', fontSize: 10 }}>© OpenStreetMap contributors</Text>
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F6F8' }}>
+                <ActivityIndicator color="#2F80ED" size="large" />
+                <Text style={{ color: '#475467', fontSize: 15, fontWeight: '700', marginTop: 12 }}>Recupero della posizione…</Text>
+                <Text style={{ color: '#667085', fontSize: 12, marginTop: 6, textAlign: 'center', paddingHorizontal: 30 }}>{partnerMapError || 'In attesa del primo aggiornamento GPS del socio.'}</Text>
+                <TouchableOpacity onPress={() => fetchPartnerMapLocation(true)} style={{ marginTop: 18, paddingHorizontal: 22, paddingVertical: 12, borderRadius: 24, backgroundColor: '#2F80ED' }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Riprova</Text>
+                </TouchableOpacity>
               </View>
-              <View style={{ padding: 16, backgroundColor: C.panel, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
-                <Text style={s.panelTitle}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '● Posizione recente' : '○ Ultima posizione salvata'}</Text>
-                <Text style={s.panelTitle}>{partnerPlaceLabel}</Text>
-                <Text style={{ color: C.green, fontSize: 15, fontWeight: '900' }}>{getPartnerStayLabel()}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <Text style={s.mutedSmall}>Batteria</Text>
-                  <Text style={{ color: C.white, fontWeight: '900', fontSize: 16 }}>{partnerMapLocation.battery_level == null ? '—' : partnerMapLocation.battery_level + '%'}</Text>
-                </View>
-                <View style={{ height: 6, borderRadius: 4, backgroundColor: C.panel2, overflow: 'hidden' }}>
-                  <View style={{ height: 6, width: (Math.max(0, Math.min(100, partnerMapLocation.battery_level || 0))) + '%', backgroundColor: (partnerMapLocation.battery_level || 0) <= 20 ? C.red : C.green }} />
-                </View>
-                <Text style={s.mutedSmall}>Ultimo dato: {new Date(partnerMapLocation.updated_at).toLocaleString('it-IT')} · Precisione: {partnerMapLocation.accuracy == null ? 'n/d' : Math.round(partnerMapLocation.accuracy) + ' m'}</Text>
-                <Button title={partnerHistoryBusy ? 'Caricamento cronologia…' : 'Cronologia spostamenti'} type="secondary" onPress={viewPartnerHistory} />
-                <Text style={s.mutedSmall}>La mappa controlla nuovi dati ogni 5 secondi. La frequenza effettiva dipende dagli aggiornamenti GPS e dalle limitazioni di iOS.</Text>
-                {partnerMapBusy && <ActivityIndicator color={C.cyan} />}
-                {!!partnerMapError && <Text style={{ color: C.yellow }}>{partnerMapError}</Text>}
+            )}
+            <View pointerEvents="box-none" style={{ position: 'absolute', top: 8, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <TouchableOpacity onPress={() => setPartnerMapVisible(false)} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#101828', shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 }}>
+                <Text style={{ color: '#1D2939', fontSize: 27, lineHeight: 30 }}>‹</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1, marginHorizontal: 10, borderRadius: 24, backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 10, shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 }}>
+                <Text style={{ color: '#101828', fontSize: 15, fontWeight: '900', textAlign: 'center' }}>Posizione socio</Text>
+                <Text style={{ color: '#667085', fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 2 }}>Mappa aggiornata automaticamente</Text>
               </View>
-            </>
-          ) : (
-            <View style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 12 }}>
-              <ActivityIndicator color={C.cyan} size="large" />
-              <Text style={s.panelTitle}>Recupero posizione…</Text>
-              <Text style={s.mutedSmall}>{partnerMapError || 'In attesa della prima posizione registrata dal telefono del socio.'}</Text>
-              <Button title="Riprova" onPress={() => fetchPartnerMapLocation(true)} />
+              <TouchableOpacity onPress={() => fetchPartnerMapLocation(true)} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#101828', shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 }}>
+                <Text style={{ color: '#2F80ED', fontSize: 25, fontWeight: '700' }}>↻</Text>
+              </TouchableOpacity>
             </View>
-          )}
+            {partnerMapLocation && (
+              <>
+                <TouchableOpacity
+                  onPress={() => partnerMapRef.current?.animateToRegion({ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 300)}
+                  style={{ position: 'absolute', right: 16, bottom: 302, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#101828', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 5 }}
+                >
+                  <Text style={{ color: '#2F80ED', fontSize: 23 }}>◎</Text>
+                </TouchableOpacity>
+                <View style={{ position: 'absolute', left: 12, right: 12, bottom: 10, borderRadius: 26, backgroundColor: '#FFFFFF', paddingHorizontal: 19, paddingTop: 17, paddingBottom: 16, shadowColor: '#101828', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 5 }, elevation: 9 }}>
+                  <View style={{ alignSelf: 'center', width: 38, height: 4, borderRadius: 3, backgroundColor: '#D0D5DD', marginBottom: 15 }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {profiles.find((p) => p.user_id !== OWNER_USER_ID)?.avatar_url ? (
+                      <Image source={{ uri: profiles.find((p) => p.user_id !== OWNER_USER_ID).avatar_url }} style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#EAECF0' }} />
+                    ) : (
+                      <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#2F80ED', fontSize: 22, fontWeight: '900' }}>{(profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name?.[0] || profiles.find((p) => p.user_id !== OWNER_USER_ID)?.email?.[0] || 'S').toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1, marginLeft: 13 }}>
+                      <Text style={{ color: '#101828', fontSize: 18, fontWeight: '900' }}>{[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? '#12B76A' : '#F79009', marginRight: 6 }} />
+                        <Text style={{ color: '#667085', fontSize: 12, fontWeight: '600' }}>{Date.now() - new Date(partnerMapLocation.updated_at).getTime() <= 120000 ? 'Posizione recente' : 'Ultima posizione conosciuta'}</Text>
+                      </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: '#101828', fontSize: 18, fontWeight: '900' }}>{partnerMapLocation.battery_level == null ? '—' : partnerMapLocation.battery_level + '%'}</Text>
+                      <Text style={{ color: '#667085', fontSize: 10, fontWeight: '700', marginTop: 2 }}>BATTERIA</Text>
+                    </View>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: '#EAECF0', marginVertical: 14 }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                      <Text style={{ color: '#2F80ED', fontSize: 18 }}>⌖</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#101828', fontSize: 14, fontWeight: '800' }}>{partnerPlaceLabel || 'Luogo non disponibile'}</Text>
+                      <Text style={{ color: '#667085', fontSize: 11, marginTop: 3 }}>{getPartnerStayLabel()}</Text>
+                      <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Aggiornato {new Date(partnerMapLocation.updated_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · Precisione {partnerMapLocation.accuracy == null ? 'n/d' : Math.round(partnerMapLocation.accuracy) + ' m'}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#2F80ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
+                    {partnerHistoryBusy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>Cronologia degli spostamenti</Text>}
+                  </TouchableOpacity>
+                  {!!partnerMapError && <Text style={{ color: '#B42318', fontSize: 11, marginTop: 8 }}>{partnerMapError}</Text>}
+                </View>
+              </>
+            )}
+          </View>
         </SafeAreaView>
       </Modal>
       <Modal visible={partnerHistoryVisible} animationType="slide" onRequestClose={() => setPartnerHistoryVisible(false)}>
