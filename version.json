@@ -1,8 +1,8 @@
 {
-  "version": "3.4.23",
-  "build": 52,
+  "version": "3.4.24",
+  "build": 53,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.4.23 build 52",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.23-build52/PokeChiacchere-v3.4.23-build52.ipa"
+  "notes": "Versione 3.4.24 build 53 — cronologia alleggerita per ridurre crash; velocità mostrata solo durante movimento recente",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.24-build53/PokeChiacchere-v3.4.24-build53.ipa"
 }
