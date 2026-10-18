@@ -4659,8 +4659,37 @@ export default function App() {
   }
 
   async function viewPartnerHistory() {
+    // Su iOS due Modal nativi sovrapposti possono finire nell'ordine errato.
+    // Chiudiamo solo la finestra della mappa e apriamo la cronologia; tornando
+    // indietro la mappa live viene riaperta.
+    setPartnerMapVisible(false);
     setPartnerHistoryVisible(true);
     await loadPartnerHistory(true);
+  }
+
+  function closePartnerHistory() {
+    setPartnerHistoryVisible(false);
+    setPartnerMapVisible(true);
+  }
+
+  function getPartnerHistoryDateGroups() {
+    const groups = new Map();
+    partnerHistory.slice().reverse().forEach((point, index) => {
+      const date = new Date(point.recorded_at);
+      const key = Number.isNaN(date.getTime())
+        ? 'data-sconosciuta'
+        : date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          label: key === 'data-sconosciuta' ? 'Data non disponibile' : date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+          points: [],
+        });
+      }
+      groups.get(key).points.push({ ...point, _historyKey: String(point.id || point.recorded_at) + '-' + index });
+    });
+    // Le date e le posizioni restano dalla più recente alla meno recente.
+    return Array.from(groups.values());
   }
 
   function getPartnerStayLabel() {
@@ -5331,7 +5360,7 @@ export default function App() {
         <View style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
           <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
             <View style={{ paddingHorizontal: 18, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
-              <TouchableOpacity onPress={() => setPartnerHistoryVisible(false)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <TouchableOpacity onPress={closePartnerHistory} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <Text style={{ color: '#1D2939', fontSize: 26 }}>‹</Text>
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
@@ -5375,16 +5404,24 @@ export default function App() {
                   <Text style={{ color: '#667085', fontSize: 12, marginTop: 3 }}>Ultime registrazioni GPS ricevute dal telefono</Text>
                 </View>
                 <ScrollView style={{ maxHeight: '43%', backgroundColor: '#FFFFFF' }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
-                  {partnerHistory.slice().reverse().map((point, index) => (
-                    <View key={String(point.id || point.recorded_at) + '-' + index} style={{ flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
-                      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
-                        <Text style={{ color: '#2F80ED', fontSize: 17 }}>⌖</Text>
+                  {getPartnerHistoryDateGroups().map((group) => (
+                    <View key={group.key}>
+                      <View style={{ paddingTop: 15, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#D0D5DD', marginBottom: 2 }}>
+                        <Text style={{ color: '#2F80ED', fontSize: 12, fontWeight: '900', textTransform: 'capitalize' }}>{group.label}</Text>
+                        <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 2 }}>{group.points.length} {group.points.length === 1 ? 'posizione' : 'posizioni'}</Text>
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#101828', fontWeight: '800', fontSize: 13 }}>{new Date(point.recorded_at).toLocaleString('it-IT')}</Text>
-                        <Text style={{ color: '#667085', fontSize: 11, marginTop: 4 }}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}</Text>
-                        <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}{point.battery_level == null ? '' : ' · Batteria ' + point.battery_level + '%'}</Text>
-                      </View>
+                      {group.points.map((point) => (
+                        <View key={point._historyKey} style={{ flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
+                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
+                            <Text style={{ color: '#2F80ED', fontSize: 17 }}>⌖</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#101828', fontWeight: '800', fontSize: 13 }}>{new Date(point.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text>
+                            <Text style={{ color: '#667085', fontSize: 11, marginTop: 4 }}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}</Text>
+                            <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}{point.battery_level == null ? '' : ' · Batteria ' + point.battery_level + '%'}</Text>
+                          </View>
+                        </View>
+                      ))}
                     </View>
                   ))}
                 </ScrollView>
