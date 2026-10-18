@@ -5319,6 +5319,37 @@ export default function App() {
                     {trips.slice().reverse().map((trip) => <View key={'trip-' + trip.key} style={{ backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#EAEAF0', elevation: 1 }}>
                       <Text style={{ color: '#171725', fontSize: 17, fontWeight: '900' }}>{trip.mode}</Text>
                       <Text style={{ color: '#777789', fontSize: 13, marginTop: 7 }}>{new Date(trip.start.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} – {new Date(trip.end.recorded_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</Text>
+                      {trip.points && trip.points.length >= 2 && (() => {
+                        const coordinates = trip.points.map((point) => ({ latitude: Number(point.latitude), longitude: Number(point.longitude) })).filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+                        if (coordinates.length < 2) return null;
+                        const latitudes = coordinates.map((point) => point.latitude);
+                        const longitudes = coordinates.map((point) => point.longitude);
+                        const minLat = Math.min(...latitudes);
+                        const maxLat = Math.max(...latitudes);
+                        const minLon = Math.min(...longitudes);
+                        const maxLon = Math.max(...longitudes);
+                        const latitudeDelta = Math.max(0.003, (maxLat - minLat) * 1.7);
+                        const longitudeDelta = Math.max(0.003, (maxLon - minLon) * 1.7);
+                        return (
+                          <View style={{ height: 190, borderRadius: 16, overflow: 'hidden', marginTop: 13, borderWidth: 1, borderColor: '#E6EAF0' }}>
+                            <MapView
+                              style={{ flex: 1 }}
+                              initialRegion={{ latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2, latitudeDelta, longitudeDelta }}
+                              scrollEnabled={false}
+                              zoomEnabled={false}
+                              rotateEnabled={false}
+                              pitchEnabled={false}
+                              toolbarEnabled={false}
+                              loadingEnabled
+                              userInterfaceStyle="light"
+                            >
+                              <Polyline coordinates={coordinates} strokeColor="#2F80ED" strokeWidth={5} lineCap="round" lineJoin="round" />
+                              <Marker coordinate={coordinates[0]} title="Partenza" pinColor="#27AE60" />
+                              <Marker coordinate={coordinates[coordinates.length - 1]} title="Arrivo" pinColor="#EB5757" />
+                            </MapView>
+                          </View>
+                        );
+                      })()}
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 13 }}>
                         <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>DISTANZA</Text><Text style={{ color: '#49356C', fontSize: 17, fontWeight: '900', marginTop: 4 }}>{(trip.meters / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km</Text></View>
                         <View style={{ flex: 1, backgroundColor: '#F5F1FB', borderRadius: 14, padding: 12 }}><Text style={{ color: '#777789', fontSize: 10, fontWeight: '900' }}>MEDIA / MAX</Text><Text style={{ color: '#49356C', fontSize: 17, fontWeight: '900', marginTop: 4 }}>{Math.round(trip.averageSpeed)} / {Math.round(trip.maxSpeed)} km/h</Text></View>
@@ -5402,6 +5433,7 @@ export default function App() {
                         <View style={{ flex: 1 }}>
                           <Text style={{ color: '#202938', fontSize: 15, fontWeight: '900' }}>{[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}</Text>
                           <Text numberOfLines={1} style={{ color: '#778190', fontSize: 12, marginTop: 2 }}>{partnerPlaceLabel}</Text>
+                          <Text numberOfLines={1} style={{ color: '#657184', fontSize: 11, marginTop: 3 }}>🔋 {partnerMapLocation.battery_level != null ? Math.round(Number(partnerMapLocation.battery_level)) + '%' : 'Batteria n/d'} · {getPartnerStayLabel()}</Text>
                         </View>
                         <Text style={{ color: '#2F80ED', fontSize: 19, fontWeight: '900' }}>⌃</Text>
                       </TouchableOpacity>
@@ -5414,7 +5446,11 @@ export default function App() {
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: '#202938', fontSize: 17, fontWeight: '900' }}>{[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}</Text>
                             <Text numberOfLines={2} style={{ color: '#778190', fontSize: 12, marginTop: 3 }}>{partnerPlaceLabel}</Text>
-                            <Text style={{ color: '#8A94A3', fontSize: 11, marginTop: 4 }}>Aggiornata {new Date(partnerMapLocation.updated_at || Date.now()).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}{partnerMapLocation.accuracy != null ? ' · precisione ' + Math.round(Number(partnerMapLocation.accuracy) || 0) + ' m' : ''}{partnerMapLocation.battery_level != null ? ' · batteria ' + Math.round(Number(partnerMapLocation.battery_level)) + '%' : ''}</Text>
+                            <Text style={{ color: '#8A94A3', fontSize: 11, marginTop: 4 }}>Aggiornata {new Date(partnerMapLocation.updated_at || Date.now()).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}{partnerMapLocation.accuracy != null ? ' · precisione ' + Math.round(Number(partnerMapLocation.accuracy) || 0) + ' m' : ''}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 5 }}>
+                              <Text style={{ color: '#657184', fontSize: 12, fontWeight: '800' }}>🔋 {partnerMapLocation.battery_level != null && Number.isFinite(Number(partnerMapLocation.battery_level)) ? Math.round(Number(partnerMapLocation.battery_level)) + '%' : 'Batteria non disponibile'}</Text>
+                              <Text style={{ color: '#657184', fontSize: 12, marginLeft: 10 }}>📍 {getPartnerStayLabel()}</Text>
+                            </View>
                           </View>
                         </View>
                         <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#2F80ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
