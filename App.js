@@ -4734,8 +4734,9 @@ export default function App() {
       }
       groups.get(key).points.push({ ...point, _historyKey: String(point.id || point.recorded_at) + '-' + index });
     });
-    // Le date e le posizioni restano dalla più recente alla meno recente.
-    return Array.from(groups.values());
+    // Mostra soltanto le giornate in cui è stato identificato almeno uno spostamento.
+    // Le giornate con soli punti GPS statici/non sufficienti non devono comparire.
+    return Array.from(groups.values()).filter((group) => getPartnerTripsForDay(group.points).length > 0);
   }
 
   function getPartnerStayLabel() {
@@ -5414,7 +5415,10 @@ export default function App() {
                       })()}
                     </Marker>
                   </MapView>
-                  <TouchableOpacity onPress={() => {
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Torna all'app" onPress={() => { setPartnerHistoryVisible(false); setPartnerMapVisible(false); }} style={{ position: 'absolute', left: 16, top: 18, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } }}>
+                    <Text style={{ color: '#202938', fontSize: 28, fontWeight: '800' }}>‹</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Centra sulla posizione" onPress={() => {
                     if (partnerMapRef.current && partnerMapLocation) {
                       partnerMapRef.current.animateToRegion({ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 350);
                     }
