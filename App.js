@@ -5306,9 +5306,9 @@ export default function App() {
                 <TouchableOpacity onPress={() => loadPartnerHistory(true)} style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: '#EEE7FC', alignItems: 'center', justifyContent: 'center' }}>{partnerHistoryBusy ? <ActivityIndicator color="#7138D5" /> : <Text style={{ color: '#7138D5', fontSize: 25, fontWeight: '800' }}>↻</Text>}</TouchableOpacity>
               </View>
               <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}>
-                {partnerHistory.length === 0 ? (
+                {partnerHistory.length === 0 || getPartnerHistoryDateGroups().length === 0 ? (
                   <View style={{ backgroundColor: '#FFFFFF', borderRadius: 22, padding: 24, alignItems: 'center' }}>
-                    <Text style={{ color: '#777789', fontSize: 14, textAlign: 'center' }}>{partnerHistoryBusy ? 'Caricamento cronologia…' : 'Nessuna posizione registrata.'}</Text>
+                    <Text style={{ color: '#777789', fontSize: 14, textAlign: 'center' }}>{partnerHistoryBusy ? 'Caricamento cronologia…' : partnerHistory.length === 0 ? 'Nessuna posizione registrata.' : 'Nessuno spostamento rilevato in questo periodo.'}</Text>
                   </View>
                 ) : getPartnerHistoryDateGroups().map((group) => {
                   const trips = getPartnerTripsForDay(group.points);
