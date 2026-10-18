@@ -5327,59 +5327,78 @@ export default function App() {
           </View>
         </SafeAreaView>
       </Modal>
-      <Modal visible={partnerHistoryVisible} animationType="slide" onRequestClose={() => setPartnerHistoryVisible(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-          <View style={[s.topBar, { justifyContent: 'space-between' }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.brand}>CRONOLOGIA SOCIO</Text>
-              <Text style={s.topCaption}>ULTIMI SPOSTAMENTI REGISTRATI</Text>
+      {partnerMapVisible && partnerHistoryVisible && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, elevation: 50, backgroundColor: '#F4F6F8' }}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
+            <View style={{ paddingHorizontal: 18, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
+              <TouchableOpacity onPress={() => setPartnerHistoryVisible(false)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Text style={{ color: '#1D2939', fontSize: 26 }}>‹</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#101828', fontSize: 18, fontWeight: '900' }}>Cronologia spostamenti</Text>
+                <Text style={{ color: '#667085', fontSize: 11, marginTop: 3 }}>Percorsi e posizioni registrate</Text>
+              </View>
+              <TouchableOpacity onPress={() => loadPartnerHistory(true)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                {partnerHistoryBusy ? <ActivityIndicator color="#2F80ED" /> : <Text style={{ color: '#2F80ED', fontSize: 24, fontWeight: '700' }}>↻</Text>}
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={s.refresh} onPress={() => loadPartnerHistory(true)}>
-              <Text style={s.refreshText}>↻</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.refresh, { width: 62 }]} onPress={() => setPartnerHistoryVisible(false)}>
-              <Text style={[s.buttonText, { color: C.red }]}>Chiudi</Text>
-            </TouchableOpacity>
-          </View>
-          {partnerHistoryBusy && <ActivityIndicator color={C.cyan} style={{ margin: 12 }} />}
-          {partnerHistory.length > 0 ? (
-            <>
-              <MapView
-                style={{ flex: 1, minHeight: 240 }}
-                initialRegion={{
-                  latitude: partnerHistory[partnerHistory.length - 1].latitude,
-                  longitude: partnerHistory[partnerHistory.length - 1].longitude,
-                  latitudeDelta: 0.04,
-                  longitudeDelta: 0.04,
-                }}
-                showsCompass
-                showsScale
-              >
-                <Polyline
-                  coordinates={partnerHistory.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))}
-                  strokeColor={C.cyan}
-                  strokeWidth={4}
-                />
-                <Marker coordinate={{ latitude: partnerHistory[partnerHistory.length - 1].latitude, longitude: partnerHistory[partnerHistory.length - 1].longitude }} title="Ultima posizione" />
-              </MapView>
-              <ScrollView style={{ maxHeight: '48%' }} contentContainerStyle={{ padding: 14 }}>
-                <Text style={s.panelTitle}>{partnerHistory.length} punti registrati</Text>
-                {partnerHistory.slice().reverse().map((point, index) => (
-                  <View key={String(point.id || point.recorded_at) + '-' + index} style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.border }}>
-                    <Text style={{ color: C.white, fontWeight: '800' }}>{new Date(point.recorded_at).toLocaleString('it-IT')}</Text>
-                    <Text style={s.mutedSmall}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)} · precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}{point.battery_level == null ? '' : ' · batteria ' + point.battery_level + '%'}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </>
-          ) : (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-              <Text style={s.panelTitle}>{partnerHistoryBusy ? 'Caricamento…' : 'Nessuno spostamento registrato'}</Text>
-              <Text style={s.mutedSmall}>I punti vengono raccolti da quando è stata installata la versione con la cronologia GPS.</Text>
-            </View>
-          )}
-        </SafeAreaView>
-      </Modal>
+            {partnerHistory.length > 0 ? (
+              <>
+                <MapView
+                  style={{ flex: 1, minHeight: 220 }}
+                  initialRegion={{
+                    latitude: partnerHistory[partnerHistory.length - 1].latitude,
+                    longitude: partnerHistory[partnerHistory.length - 1].longitude,
+                    latitudeDelta: 0.04,
+                    longitudeDelta: 0.04,
+                  }}
+                  mapType="standard"
+                  showsCompass={false}
+                  showsScale={false}
+                  showsBuildings
+                  rotateEnabled={false}
+                  pitchEnabled={false}
+                >
+                  <Polyline
+                    coordinates={partnerHistory.map((point) => ({ latitude: point.latitude, longitude: point.longitude }))}
+                    strokeColor="#2F80ED"
+                    strokeWidth={5}
+                  />
+                  <Marker
+                    coordinate={{ latitude: partnerHistory[partnerHistory.length - 1].latitude, longitude: partnerHistory[partnerHistory.length - 1].longitude }}
+                    title="Ultima posizione"
+                    pinColor="#2F80ED"
+                  />
+                </MapView>
+                <View style={{ backgroundColor: '#FFFFFF', paddingHorizontal: 18, paddingTop: 15, paddingBottom: 8, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
+                  <Text style={{ color: '#101828', fontSize: 17, fontWeight: '900' }}>{partnerHistory.length} posizioni registrate</Text>
+                  <Text style={{ color: '#667085', fontSize: 12, marginTop: 3 }}>Ultime registrazioni GPS ricevute dal telefono</Text>
+                </View>
+                <ScrollView style={{ maxHeight: '43%', backgroundColor: '#FFFFFF' }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
+                  {partnerHistory.slice().reverse().map((point, index) => (
+                    <View key={String(point.id || point.recorded_at) + '-' + index} style={{ flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
+                      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
+                        <Text style={{ color: '#2F80ED', fontSize: 17 }}>⌖</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#101828', fontWeight: '800', fontSize: 13 }}>{new Date(point.recorded_at).toLocaleString('it-IT')}</Text>
+                        <Text style={{ color: '#667085', fontSize: 11, marginTop: 4 }}>{point.latitude.toFixed(5)}, {point.longitude.toFixed(5)}</Text>
+                        <Text style={{ color: '#98A2B3', fontSize: 10, marginTop: 3 }}>Precisione {point.accuracy == null ? 'n/d' : Math.round(point.accuracy) + ' m'}{point.battery_level == null ? '' : ' · Batteria ' + point.battery_level + '%'}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </>
+            ) : (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28 }}>
+                {partnerHistoryBusy && <ActivityIndicator color="#2F80ED" size="large" />}
+                <Text style={{ color: '#101828', fontSize: 17, fontWeight: '900', marginTop: 12 }}>{partnerHistoryBusy ? 'Caricamento cronologia…' : 'Nessuno spostamento registrato'}</Text>
+                <Text style={{ color: '#667085', fontSize: 12, textAlign: 'center', marginTop: 7 }}>I punti vengono raccolti da quando è stata attivata la registrazione della cronologia GPS.</Text>
+              </View>
+            )}
+          </SafeAreaView>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
