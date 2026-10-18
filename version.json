@@ -1,8 +1,8 @@
 {
-  "version": "3.4.16",
-  "build": 45,
+  "version": "3.4.17",
+  "build": 46,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.4.16 build 45",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.16-build45/PokeChiacchere-v3.4.16-build45.ipa"
+  "notes": "Versione 3.4.17 build 46 — nuova interfaccia Posizione socio ispirata a Life360",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.17-build46/PokeChiacchere-v3.4.17-build46.ipa"
 }
