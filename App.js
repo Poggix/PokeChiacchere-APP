@@ -13,6 +13,7 @@ import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as Network from 'expo-network';
 import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
 import {
@@ -376,6 +377,8 @@ export default function App() {
   const [profiles, setProfiles] = useState([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [updateCheckBusy, setUpdateCheckBusy] = useState(false);
+  const [updateDownloadBusy, setUpdateDownloadBusy] = useState(false);
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState(0);
   const [downloadedIpa, setDownloadedIpa] = useState(null);
   const [savedAccounts, setSavedAccounts] = useState([]);
   const [accountEmail, setAccountEmail] = useState('');
@@ -4162,6 +4165,17 @@ export default function App() {
 
   async function shareDownloadedIpa() {
     try {
+      const networkState = await Network.getNetworkStateAsync();
+      const networkType = networkState?.type;
+      const hasWifiOrVpn = networkState?.isConnected === true &&
+        (networkType === Network.NetworkStateType.WIFI || networkType === Network.NetworkStateType.VPN);
+      if (!hasWifiOrVpn) {
+        Alert.alert(
+          'Connessione necessaria',
+          'Per condividere la IPA con SideStore, attiva il Wi‑Fi oppure la VPN LocalDev usata da SideStore, quindi riprova.'
+        );
+        return;
+      }
       const uri = downloadedIpa?.uri;
       if (!uri) {
         Alert.alert('Nessuna IPA disponibile', 'Scarica prima l’aggiornamento.');
@@ -4355,6 +4369,9 @@ export default function App() {
             {
               text: 'Scarica e condividi',
               onPress: async () => {
+                if (updateDownloadBusy) return;
+                setUpdateDownloadBusy(true);
+                setUpdateDownloadProgress(0);
                 try {
                   const safeVersion = latestVersion.replace(/[^0-9.]/g, '_');
                   // Conserva la IPA nella directory documenti dell'app invece che nella cache,
@@ -4381,12 +4398,26 @@ export default function App() {
                     await FileSystem.deleteAsync(fileUri, { idempotent: true });
                   }
 
-                  const downloaded = await FileSystem.downloadAsync(downloadUrl, fileUri);
-                  if (downloaded.status < 200 || downloaded.status >= 300) {
-                    throw new Error('Download non riuscito (HTTP ' + downloaded.status + ').');
+                  const downloadTask = FileSystem.createDownloadResumable(
+                    downloadUrl,
+                    fileUri,
+                    {},
+                    (downloadProgress) => {
+                      const expected = Number(downloadProgress.totalBytesExpectedToWrite || 0);
+                      const written = Number(downloadProgress.totalBytesWritten || 0);
+                      if (expected > 0) {
+                        const percent = Math.max(0, Math.min(100, Math.floor((written / expected) * 100)));
+                        setUpdateDownloadProgress(percent);
+                      }
+                    }
+                  );
+                  const downloadResult = await downloadTask.downloadAsync();
+                  if (!downloadResult || downloadResult.status < 200 || downloadResult.status >= 300) {
+                    throw new Error('Download non riuscito (HTTP ' + (downloadResult?.status || 'sconosciuto') + ').');
                   }
+                  setUpdateDownloadProgress(100);
 
-                  const info = await FileSystem.getInfoAsync(downloaded.uri);
+                  const info = await FileSystem.getInfoAsync(downloadResult.uri);
                   if (!info.exists || !info.size || info.size < 100000) {
                     throw new Error('Il file scaricato non esiste o è troppo piccolo per essere una IPA valida.');
                   }
@@ -4394,7 +4425,7 @@ export default function App() {
                   // Conserva il file nella sezione Aggiornamenti: la condivisione avviene
                   // solo quando l'utente preme il pulsante dedicato nella schermata Impostazioni.
                   setDownloadedIpa({
-                    uri: fileUri,
+                    uri: downloadResult.uri,
                     fileName,
                     version: latestVersion,
                     build: latestBuild,
@@ -4410,6 +4441,9 @@ export default function App() {
                     (error?.message || 'Errore durante il download.') +
                       '\n\nNota: download_url deve essere un link diretto al file IPA. Un link a una cartella o pagina di iCloud potrebbe scaricare una pagina web invece dell’app.'
                   );
+                } finally {
+                  setUpdateDownloadBusy(false);
+                  setUpdateDownloadProgress(0);
                 }
               },
             },
@@ -4770,6 +4804,19 @@ export default function App() {
           <Text style={s.panelTitle}>Aggiornamenti app</Text>
           <Text style={s.mutedSmall}>Versione installata: v{Constants.nativeAppVersion || Constants.expoConfig?.version || '—'} · build {Constants.nativeBuildVersion || Constants.expoConfig?.ios?.buildNumber || '—'}. Il controllo confronta sia la versione sia il numero di build; non viene eseguito in automatico.</Text>
           <Button title={updateCheckBusy ? 'Controllo in corso…' : 'Controlla aggiornamenti'} type="secondary" onPress={checkForUpdates} />
+          {(updateCheckBusy || updateDownloadBusy) && (
+            <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: updateDownloadBusy ? updateDownloadProgress : 0 }} style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: C.panel2, alignItems: 'center', gap: 10 }}>
+              <ActivityIndicator size="large" color={C.cyan} />
+              <Text style={{ color: C.white, fontWeight: '900', fontSize: 14 }}>
+                {updateDownloadBusy ? 'Download aggiornamento: ' + updateDownloadProgress + '%' : 'Controllo aggiornamenti in corso…'}
+              </Text>
+              {updateDownloadBusy && (
+                <View style={{ width: '100%', height: 8, borderRadius: 5, backgroundColor: C.border, overflow: 'hidden' }}>
+                  <View style={{ width: updateDownloadProgress + '%', height: '100%', backgroundColor: C.cyan, borderRadius: 5 }} />
+                </View>
+              )}
+            </View>
+          )}
           <Button title="Apri cartella IPA scaricate" type="secondary" onPress={openDownloadedIpaFolder} />
           <Button title="Diagnostica memoria app" type="secondary" onPress={showStorageDiagnostics} />
           {downloadedIpa ? (
