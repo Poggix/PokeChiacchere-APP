@@ -5327,8 +5327,8 @@ export default function App() {
           </View>
         </SafeAreaView>
       </Modal>
-      {partnerMapVisible && partnerHistoryVisible && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, elevation: 50, backgroundColor: '#F4F6F8' }}>
+      <Modal visible={partnerHistoryVisible} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setPartnerHistoryVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
           <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
             <View style={{ paddingHorizontal: 18, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EAECF0' }}>
               <TouchableOpacity onPress={() => setPartnerHistoryVisible(false)} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
@@ -5398,7 +5398,7 @@ export default function App() {
             )}
           </SafeAreaView>
         </View>
-      )}
+      </Modal>
     </SafeAreaView>
   );
 }
