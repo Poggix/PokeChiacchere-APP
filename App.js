@@ -357,6 +357,11 @@ export default function App() {
   const [whatsappRecipientSaving, setWhatsappRecipientSaving] = useState(false);
   const [form, setForm] = useState({});
   const [tiktokFeePercent, setTiktokFeePercent] = useState(0);
+  const [tiktokFeeModalVisible, setTiktokFeeModalVisible] = useState(false);
+  const [tiktokFeeDraft, setTiktokFeeDraft] = useState('0');
+  const [tiktokFeeApplyMode, setTiktokFeeApplyMode] = useState('none');
+  const [tiktokFeeOrderSelection, setTiktokFeeOrderSelection] = useState({});
+  const [tiktokFeeSaving, setTiktokFeeSaving] = useState(false);
   const [editing, setEditing] = useState(null);
   const [picker, setPicker] = useState(null);
   const [search, setSearch] = useState('');
@@ -1126,28 +1131,73 @@ export default function App() {
     return () => { active = false; };
   }, []);
 
-  async function configureTiktokFeePercent() {
-    Alert.prompt(
-      'Commissioni TikTok',
-      'Inserisci la percentuale fissa da applicare al prezzo attuale della vendita.',
-      [
-        { text: 'Annulla', style: 'cancel' },
-        { text: 'Salva', onPress: async (raw) => {
-          const normalized = String(raw ?? '').trim().replace(',', '.');
-          const value = Number(normalized);
-          if (!normalized || !Number.isFinite(value) || value < 0 || value > 100) {
-            Alert.alert('Percentuale non valida', 'Inserisci un valore tra 0 e 100.');
-            return;
-          }
-          setTiktokFeePercent(value);
-          try { await AsyncStorage.setItem('pokechiacchere_tiktok_fee_percent', String(value)); }
-          catch (_) { Alert.alert('Errore', 'Non è stato possibile salvare la percentuale su questo dispositivo.'); }
-        } },
-      ],
-      'plain-text',
-      String(tiktokFeePercent),
-      'decimal-pad'
-    );
+  function openTiktokFeeSettings() {
+    if (!isOwner) return;
+    setTiktokFeeDraft(String(tiktokFeePercent));
+    setTiktokFeeApplyMode('none');
+    setTiktokFeeOrderSelection({});
+    setTiktokFeeModalVisible(true);
+  }
+
+  const tiktokFeeOrders = useMemo(() => {
+    const grouped = new Map();
+    (records.sales || []).forEach((sale) => {
+      const orderKey = String(sale.order_number || '').trim() || `Senza numero · ${sale.id}`;
+      if (!grouped.has(orderKey)) grouped.set(orderKey, { key: orderKey, date: sale.sale_date, rows: [], total: 0 });
+      const order = grouped.get(orderKey);
+      order.rows.push(sale);
+      order.total += num(sale.total_sale ?? (num(sale.quantity) * num(sale.sale_unit_price ?? sale.unit_price)));
+    });
+    return [...grouped.values()].sort((a, b) => dateSortValue(b.date) - dateSortValue(a.date));
+  }, [records.sales]);
+
+  async function saveTiktokFeeSettings() {
+    if (!isOwner || tiktokFeeSaving) return;
+    const normalized = String(tiktokFeeDraft ?? '').trim().replace(',', '.');
+    const value = Number(normalized);
+    if (!normalized || !Number.isFinite(value) || value < 0 || value > 100) {
+      Alert.alert('Percentuale non valida', 'Inserisci un valore tra 0 e 100.');
+      return;
+    }
+    const selectedKeys = tiktokFeeApplyMode === 'all'
+      ? tiktokFeeOrders.map((order) => order.key)
+      : tiktokFeeApplyMode === 'selected'
+        ? tiktokFeeOrders.filter((order) => tiktokFeeOrderSelection[order.key]).map((order) => order.key)
+        : [];
+    const selectedRows = (records.sales || []).filter((sale) => {
+      const key = String(sale.order_number || '').trim() || `Senza numero · ${sale.id}`;
+      return selectedKeys.includes(key);
+    });
+    if (tiktokFeeApplyMode === 'selected' && selectedRows.length === 0) {
+      Alert.alert('Seleziona gli ordini', 'Spunta almeno un ordine a cui applicare la nuova percentuale.');
+      return;
+    }
+    setTiktokFeeSaving(true);
+    try {
+      await AsyncStorage.setItem('pokechiacchere_tiktok_fee_percent', String(value));
+      setTiktokFeePercent(value);
+      for (const sale of selectedRows) {
+        const base = num(sale.total_sale ?? (num(sale.quantity) * num(sale.sale_unit_price ?? sale.unit_price)));
+        const fee = Math.round(base * value) / 100;
+        const other = num(sale.other_costs);
+        const shipping = num(sale.shipping_cost);
+        const cost = num(sale.product_cost ?? (num(sale.purchase_unit_cost) * num(sale.quantity)));
+        await api(`/rest/v1/sales?id=eq.${encodeURIComponent(sale.id)}`, token, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ tiktok_fees: fee, net_profit: base - fee - other - shipping - cost }),
+        });
+      }
+      setTiktokFeeModalVisible(false);
+      await loadData();
+      Alert.alert('Salvato', selectedRows.length
+        ? `Percentuale salvata e applicata a ${selectedRows.length} righe di vendita.`
+        : 'Percentuale salvata. Non sono stati modificati ordini esistenti.');
+    } catch (error) {
+      Alert.alert('Errore', `Non è stato possibile completare l'operazione: ${error?.message || error}`);
+    } finally {
+      setTiktokFeeSaving(false);
+    }
   }
 
   useEffect(() => {
@@ -2323,7 +2373,7 @@ export default function App() {
             <View style={[s.metricLine, { backgroundColor: C.red }]} />
             <Text style={s.metricLabel}>Commissioni TikTok</Text>
             <Text style={s.metricValue}>{money(totals.fees)}</Text>
-            <TouchableOpacity onPress={configureTiktokFeePercent} activeOpacity={0.75} style={{ alignSelf: 'flex-end', marginTop: 6, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: C.panel2 }}>
+            <TouchableOpacity onPress={openTiktokFeeSettings} activeOpacity={0.75} style={{ alignSelf: 'flex-end', marginTop: 6, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, backgroundColor: C.panel2 }}>
               <Text style={{ color: C.cyan, fontSize: 12, fontWeight: '700' }}>⚙ {tiktokFeePercent}%</Text>
             </TouchableOpacity>
           </View>
@@ -5296,6 +5346,69 @@ export default function App() {
       </View>
 
       {pickerModal()}
+      <Modal visible={tiktokFeeModalVisible && isOwner} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setTiktokFeeModalVisible(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.panel2 }}>
+            <TouchableOpacity onPress={() => setTiktokFeeModalVisible(false)} style={{ padding: 8 }}><Text style={{ color: C.muted, fontSize: 16 }}>Annulla</Text></TouchableOpacity>
+            <Text style={{ color: C.text, fontSize: 18, fontWeight: '800' }}>Commissioni TikTok</Text>
+            <TouchableOpacity onPress={saveTiktokFeeSettings} disabled={tiktokFeeSaving} style={{ padding: 8 }}><Text style={{ color: C.cyan, fontSize: 16, fontWeight: '800' }}>{tiktokFeeSaving ? 'Salvo…' : 'Salva'}</Text></TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 36 }} keyboardShouldPersistTaps="handled">
+            <View style={s.panel}>
+              <Text style={s.panelTitle}>Percentuale predefinita</Text>
+              <Text style={s.mutedText}>La percentuale viene ricordata su questo dispositivo e usata per le nuove vendite.</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 }}>
+                <TextInput value={tiktokFeeDraft} onChangeText={setTiktokFeeDraft} keyboardType="decimal-pad" placeholder="Es. 5" placeholderTextColor={C.muted} style={[s.input, { flex: 1, marginBottom: 0 }]} />
+                <Text style={{ color: C.text, fontSize: 20, fontWeight: '800' }}>%</Text>
+              </View>
+            </View>
+            <View style={[s.panel, { marginTop: 14 }]}>
+              <Text style={s.panelTitle}>Applica automaticamente agli ordini</Text>
+              <Text style={s.mutedText}>Scegli se aggiornare le commissioni delle vendite già registrate.</Text>
+              {[
+                { key: 'none', label: 'Non modificare gli ordini esistenti' },
+                { key: 'all', label: 'Tutti gli ordini' },
+                { key: 'selected', label: 'Solo gli ordini selezionati' },
+              ].map((option) => (
+                <TouchableOpacity key={option.key} onPress={() => setTiktokFeeApplyMode(option.key)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 13, gap: 10, borderBottomWidth: 1, borderBottomColor: C.panel2 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: tiktokFeeApplyMode === option.key ? C.cyan : C.muted, alignItems: 'center', justifyContent: 'center' }}>
+                    {tiktokFeeApplyMode === option.key && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: C.cyan }} />}
+                  </View>
+                  <Text style={{ color: C.text, flex: 1, fontSize: 14, fontWeight: '600' }}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {tiktokFeeApplyMode === 'selected' && (
+              <View style={[s.panel, { marginTop: 14 }]}>
+                <Text style={s.panelTitle}>Seleziona ordini</Text>
+                <Text style={s.mutedText}>Spunta gli ordini da aggiornare. La selezione include tutte le righe dello stesso numero d'ordine.</Text>
+                {tiktokFeeOrders.map((order) => {
+                  const checked = !!tiktokFeeOrderSelection[order.key];
+                  return (
+                    <TouchableOpacity key={order.key} onPress={() => setTiktokFeeOrderSelection((prev) => ({ ...prev, [order.key]: !prev[order.key] }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.panel2 }}>
+                      <View style={{ width: 23, height: 23, borderRadius: 6, borderWidth: 2, borderColor: checked ? C.cyan : C.muted, backgroundColor: checked ? C.cyan : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                        {checked && <Text style={{ color: C.bg, fontWeight: '900' }}>✓</Text>}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: C.text, fontWeight: '700' }}>{order.key}</Text>
+                        <Text style={s.mutedSmall}>{order.date || 'Data non disponibile'} · {order.rows.length} righe</Text>
+                      </View>
+                      <Text style={{ color: C.text, fontWeight: '700' }}>{money(order.total)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <TouchableOpacity onPress={() => setTiktokFeeOrderSelection(Object.fromEntries(tiktokFeeOrders.map((order) => [order.key, true])))} style={{ backgroundColor: C.panel2, padding: 10, borderRadius: 10 }}><Text style={{ color: C.cyan, fontWeight: '700' }}>Seleziona tutti</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => setTiktokFeeOrderSelection({})} style={{ backgroundColor: C.panel2, padding: 10, borderRadius: 10 }}><Text style={{ color: C.cyan, fontWeight: '700' }}>Deseleziona tutti</Text></TouchableOpacity>
+                </View>
+              </View>
+            )}
+            <TouchableOpacity onPress={saveTiktokFeeSettings} disabled={tiktokFeeSaving} style={{ backgroundColor: C.cyan, borderRadius: 14, padding: 15, alignItems: 'center', marginTop: 16, opacity: tiktokFeeSaving ? 0.6 : 1 }}>
+              <Text style={{ color: C.bg, fontSize: 16, fontWeight: '900' }}>{tiktokFeeSaving ? 'Salvataggio…' : 'Salva percentuale e applica'}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
       <Modal visible={partnerMapVisible} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => { setPartnerMapVisible(false); setPartnerHistoryVisible(false); }}>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F6F8' }}>
           {partnerHistoryVisible ? (
