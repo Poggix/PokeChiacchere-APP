@@ -413,6 +413,7 @@ export default function App() {
   const [partnerHistoryBusy, setPartnerHistoryBusy] = useState(false);
   const [partnerHistoryVisible, setPartnerHistoryVisible] = useState(false);
   const [partnerMapFooterCollapsed, setPartnerMapFooterCollapsed] = useState(false);
+  const [partnerMapType, setPartnerMapType] = useState('standard');
   const [partnerPlaceLabel, setPartnerPlaceLabel] = useState('Luogo non disponibile');
   const partnerMapRef = useRef(null);
   const partnerMapLastCameraRef = useRef(null);
@@ -5568,7 +5569,7 @@ export default function App() {
                     style={{ flex: 1 }}
                     initialRegion={{ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
                     showsUserLocation={false}
-                    mapType="standard"
+                    mapType={partnerMapType}
                     showsCompass={false}
                     showsScale={false}
                     showsBuildings
@@ -5622,6 +5623,9 @@ export default function App() {
                   }} style={{ position: 'absolute', right: 16, top: 18, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, borderWidth: 1, borderColor: '#EEE8FF' }}>
                     <Text style={{ color: '#7651F5', fontSize: 25, fontWeight: '900' }}>⌖</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cambia stile mappa" onPress={() => setPartnerMapType((type) => type === 'standard' ? 'satellite' : type === 'satellite' ? 'hybrid' : 'standard')} style={{ position: 'absolute', right: 16, top: 76, minWidth: 48, height: 42, borderRadius: 15, backgroundColor: '#FFFFFF', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, borderWidth: 1, borderColor: '#EEE8FF' }}>
+                    <Text style={{ color: '#49347D', fontSize: 11, fontWeight: '900' }}>{partnerMapType === 'standard' ? 'MAPPA' : partnerMapType === 'satellite' ? 'SAT' : 'IBRIDA'}</Text>
+                  </TouchableOpacity>
                   <View pointerEvents="none" style={{ position: 'absolute', top: 78, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EEE8FF', elevation: 6, shadowColor: '#28105D', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
                     <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0EBFF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                       <Text style={{ color: '#7651F5', fontSize: 17, fontWeight: '900' }}>P</Text>
@@ -5660,9 +5664,16 @@ export default function App() {
                             <Text style={{ color: '#202938', fontSize: 17, fontWeight: '900' }}>{[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}</Text>
                             <Text numberOfLines={2} style={{ color: '#778190', fontSize: 12, marginTop: 3 }}>{partnerPlaceLabel}</Text>
                             <Text style={{ color: '#8A94A3', fontSize: 11, marginTop: 4 }}>Aggiornata {new Date(partnerMapLocation.updated_at || Date.now()).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}{partnerMapLocation.accuracy != null ? ' · precisione ' + Math.round(Number(partnerMapLocation.accuracy) || 0) + ' m' : ''}</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 5 }}>
-                              <Text style={{ color: '#657184', fontSize: 12, fontWeight: '800' }}>🔋 {partnerMapLocation.battery_level != null && Number.isFinite(Number(partnerMapLocation.battery_level)) ? Math.round(Number(partnerMapLocation.battery_level)) + '%' : 'Batteria non disponibile'}</Text>
-                              <Text style={{ color: '#657184', fontSize: 12, marginLeft: 10 }}>📍 {getPartnerStayLabel()}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 7, gap: 7 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0EBFF', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 }}>
+                                <Text style={{ color: '#49347D', fontSize: 11, fontWeight: '900' }}>🔋 {partnerMapLocation.battery_level != null && Number.isFinite(Number(partnerMapLocation.battery_level)) ? Math.round(Number(partnerMapLocation.battery_level)) + '%' : 'N/D'}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F6F9', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 }}>
+                                <Text style={{ color: '#4D5668', fontSize: 11, fontWeight: '800' }}>📍 {getPartnerStayLabel()}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F6F9', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 }}>
+                                <Text style={{ color: '#4D5668', fontSize: 11, fontWeight: '800' }}>◎ ±{partnerMapLocation.accuracy != null ? Math.round(Number(partnerMapLocation.accuracy) || 0) + ' m' : 'N/D'}</Text>
+                              </View>
                             </View>
                           </View>
                         </View>
