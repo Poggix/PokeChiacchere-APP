@@ -20,7 +20,7 @@
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
       "icon": "./assets/icon.png",
-      "buildNumber": "75",
+      "buildNumber": "76",
       "entitlements": {
         "aps-environment": "development"
       },
