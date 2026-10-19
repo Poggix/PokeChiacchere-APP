@@ -5622,11 +5622,17 @@ export default function App() {
                   }} style={{ position: 'absolute', right: 16, top: 18, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, borderWidth: 1, borderColor: '#EEE8FF' }}>
                     <Text style={{ color: '#7651F5', fontSize: 25, fontWeight: '900' }}>⌖</Text>
                   </TouchableOpacity>
-                  <View pointerEvents="none" style={{ position: 'absolute', top: 78, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 22, paddingHorizontal: 15, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EEE8FF', elevation: 5, shadowColor: '#28105D', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#29C779', marginRight: 8 }} />
-                    <Text style={{ color: '#29223D', fontSize: 13, fontWeight: '900' }}>Mappa live</Text>
-                    <View style={{ width: 1, height: 15, backgroundColor: '#E6E0F5', marginHorizontal: 10 }} />
-                    <Text style={{ color: '#7651F5', fontSize: 12, fontWeight: '800' }}>PokeChiacchere</Text>
+                  <View pointerEvents="none" style={{ position: 'absolute', top: 78, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EEE8FF', elevation: 6, shadowColor: '#28105D', shadowOpacity: 0.14, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0EBFF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                      <Text style={{ color: '#7651F5', fontSize: 17, fontWeight: '900' }}>P</Text>
+                    </View>
+                    <View>
+                      <Text style={{ color: '#29223D', fontSize: 13, fontWeight: '900' }}>Condivisione posizione</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#29C779', marginRight: 6 }} />
+                        <Text style={{ color: '#687084', fontSize: 11, fontWeight: '700' }}>Ultima posizione ricevuta</Text>
+                      </View>
+                    </View>
                   </View>
                   <View style={{ position: 'absolute', left: 12, right: 12, bottom: 8, backgroundColor: '#FFFFFF', borderRadius: 28, paddingHorizontal: 18, paddingTop: 9, paddingBottom: partnerMapFooterCollapsed ? 12 : 17, elevation: 12, shadowColor: '#28105D', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, borderWidth: 1, borderColor: '#EEE8FF' }}>
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel={partnerMapFooterCollapsed ? 'Espandi scheda posizione' : 'Comprimi scheda posizione'} onPress={() => setPartnerMapFooterCollapsed((collapsed) => !collapsed)} style={{ alignItems: 'center', justifyContent: 'center', paddingBottom: 10, minHeight: 24 }}>
@@ -5660,9 +5666,20 @@ export default function App() {
                             </View>
                           </View>
                         </View>
-                        <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#7651F5', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
-                          {partnerHistoryBusy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>Cronologia degli spostamenti</Text>}
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', gap: 9, marginTop: 16 }}>
+                          <TouchableOpacity accessibilityRole="button" onPress={viewPartnerHistory} style={{ flex: 1, minHeight: 66, borderRadius: 17, backgroundColor: '#F2EEFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E7DEFF' }}>
+                            {partnerHistoryBusy ? <ActivityIndicator color="#7651F5" /> : <Text style={{ color: '#7651F5', fontSize: 22, fontWeight: '800' }}>↗</Text>}
+                            <Text style={{ color: '#49347D', fontSize: 11, fontWeight: '900', marginTop: 3 }}>Cronologia</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity accessibilityRole="button" onPress={() => fetchPartnerMapLocation(true)} style={{ flex: 1, minHeight: 66, borderRadius: 17, backgroundColor: '#F7F8FB', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EAECF2' }}>
+                            <Text style={{ color: '#4D5668', fontSize: 22, fontWeight: '800' }}>↻</Text>
+                            <Text style={{ color: '#4D5668', fontSize: 11, fontWeight: '900', marginTop: 3 }}>Aggiorna</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity accessibilityRole="button" onPress={() => { if (partnerMapRef.current && partnerMapLocation) partnerMapRef.current.animateToRegion({ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.008, longitudeDelta: 0.008 }, 400); }} style={{ flex: 1, minHeight: 66, borderRadius: 17, backgroundColor: '#F7F8FB', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EAECF2' }}>
+                            <Text style={{ color: '#4D5668', fontSize: 22, fontWeight: '800' }}>⌖</Text>
+                            <Text style={{ color: '#4D5668', fontSize: 11, fontWeight: '900', marginTop: 3 }}>Centra mappa</Text>
+                          </TouchableOpacity>
+                        </View>
                         {!!partnerMapError && <Text style={{ color: '#B42318', fontSize: 11, marginTop: 8 }}>{partnerMapError}</Text>}
                       </>
                     )}
