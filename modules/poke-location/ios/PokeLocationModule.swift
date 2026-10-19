@@ -31,7 +31,8 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     super.init()
     manager.delegate = self
     manager.desiredAccuracy = kCLLocationAccuracyBest
-    manager.distanceFilter = 10
+    manager.activityType = .otherNavigation
+    manager.distanceFilter = 15
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
     manager.showsBackgroundLocationIndicator = false
@@ -69,7 +70,8 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   private func startServices() {
     manager.delegate = self
     manager.desiredAccuracy = kCLLocationAccuracyBest
-    manager.distanceFilter = 10
+    manager.activityType = .otherNavigation
+    manager.distanceFilter = 15
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
     manager.showsBackgroundLocationIndicator = false
