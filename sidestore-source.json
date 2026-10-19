@@ -13,6 +13,13 @@
       "tintColor": "#7B2CBF",
       "versions": [
         {
+          "version": "3.4.34",
+          "date": "2026-10-19",
+          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.34-build63/PokeChiacchere-v3.4.34-build63.ipa",
+          "size": 12439175,
+          "localizedDescription": "Versione 3.4.34"
+        },
+        {
           "version": "3.4.33",
           "date": "2026-10-19",
           "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.33-build62/PokeChiacchere-v3.4.33-build62.ipa",
