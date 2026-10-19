@@ -1,8 +1,8 @@
 {
   "version": "3.4.5",
-  "build": 76,
+  "build": 77,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.4.5 build 76 — miglioramenti tracciamento posizione in background",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.5-build76/PokeChiacchere-v3.4.5-build76.ipa"
+  "notes": "Versione 3.4.5 build 77 — stream Core Location moderno e diagnostica tracciamento",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.5-build77/PokeChiacchere-v3.4.5-build77.ipa"
 }
