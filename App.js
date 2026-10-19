@@ -5529,7 +5529,7 @@ export default function App() {
                         const latitudeDelta = Math.max(0.003, (maxLat - minLat) * 1.7);
                         const longitudeDelta = Math.max(0.003, (maxLon - minLon) * 1.7);
                         return (
-                          <View style={{ height: 190, borderRadius: 16, overflow: 'hidden', marginTop: 13, borderWidth: 1, borderColor: '#E6EAF0' }}>
+                          <View style={{ height: 190, borderRadius: 16, overflow: 'hidden', marginTop: 13, borderWidth: 1, borderColor: '#EEE8FF' }}>
                             <MapView
                               style={{ flex: 1 }}
                               initialRegion={{ latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2, latitudeDelta, longitudeDelta }}
@@ -5541,7 +5541,7 @@ export default function App() {
                               loadingEnabled
                               userInterfaceStyle="light"
                             >
-                              <Polyline coordinates={coordinates} strokeColor="#2F80ED" strokeWidth={5} lineCap="round" lineJoin="round" />
+                              <Polyline coordinates={coordinates} strokeColor="#7651F5" strokeWidth={5} lineCap="round" lineJoin="round" />
                               <Marker coordinate={coordinates[0]} title="Partenza" pinColor="#27AE60" />
                               <Marker coordinate={coordinates[coordinates.length - 1]} title="Arrivo" pinColor="#EB5757" />
                             </MapView>
@@ -5598,10 +5598,10 @@ export default function App() {
                         const isMoving = speed != null && speed >= 3 && pointIsFresh;
                         return (
                           <View style={{ alignItems: 'center', width: 112 }}>
-                            {isMoving && <View style={{ backgroundColor: '#2F80ED', borderRadius: 15, paddingHorizontal: 11, paddingVertical: 6, marginBottom: 5, borderWidth: 2, borderColor: '#FFFFFF', elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } }}>
+                            {isMoving && <View style={{ backgroundColor: '#7651F5', borderRadius: 15, paddingHorizontal: 11, paddingVertical: 6, marginBottom: 5, borderWidth: 2, borderColor: '#FFFFFF', elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } }}>
                               <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>{Math.round(speed)} km/h</Text>
                             </View>}
-                            <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 4, borderColor: '#FFFFFF', backgroundColor: '#2F80ED', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', elevation: 5, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } }}>
+                            <View style={{ width: 62, height: 62, borderRadius: 31, borderWidth: 4, borderColor: '#FFFFFF', backgroundColor: '#7651F5', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', elevation: 5, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 5, shadowOffset: { width: 0, height: 3 } }}>
                               {partnerProfile?.avatar_url ? <Image source={{ uri: partnerProfile.avatar_url }} style={{ width: 56, height: 56, borderRadius: 28 }} resizeMode="cover" /> : <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '900' }}>{(partnerProfile?.first_name?.[0] || displayName[0] || 'S').toUpperCase()}</Text>}
                             </View>
                             <View style={{ backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4, marginTop: 4, elevation: 3 }}>
@@ -5619,30 +5619,36 @@ export default function App() {
                     if (partnerMapRef.current && partnerMapLocation) {
                       partnerMapRef.current.animateToRegion({ latitude: partnerMapLocation.latitude, longitude: partnerMapLocation.longitude, latitudeDelta: 0.012, longitudeDelta: 0.012 }, 350);
                     }
-                  }} style={{ position: 'absolute', right: 16, top: 18, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } }}>
-                    <Text style={{ color: '#2F80ED', fontSize: 23, fontWeight: '900' }}>⌖</Text>
+                  }} style={{ position: 'absolute', right: 16, top: 18, width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, borderWidth: 1, borderColor: '#EEE8FF' }}>
+                    <Text style={{ color: '#7651F5', fontSize: 25, fontWeight: '900' }}>⌖</Text>
                   </TouchableOpacity>
-                  <View style={{ position: 'absolute', left: 12, right: 12, bottom: 8, backgroundColor: '#FFFFFF', borderRadius: 24, paddingHorizontal: 18, paddingTop: 9, paddingBottom: partnerMapFooterCollapsed ? 12 : 17, elevation: 9, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, borderWidth: 1, borderColor: '#E6EAF0' }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', top: 78, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 22, paddingHorizontal: 15, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#EEE8FF', elevation: 5, shadowColor: '#28105D', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#29C779', marginRight: 8 }} />
+                    <Text style={{ color: '#29223D', fontSize: 13, fontWeight: '900' }}>Mappa live</Text>
+                    <View style={{ width: 1, height: 15, backgroundColor: '#E6E0F5', marginHorizontal: 10 }} />
+                    <Text style={{ color: '#7651F5', fontSize: 12, fontWeight: '800' }}>PokeChiacchere</Text>
+                  </View>
+                  <View style={{ position: 'absolute', left: 12, right: 12, bottom: 8, backgroundColor: '#FFFFFF', borderRadius: 28, paddingHorizontal: 18, paddingTop: 9, paddingBottom: partnerMapFooterCollapsed ? 12 : 17, elevation: 12, shadowColor: '#28105D', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, borderWidth: 1, borderColor: '#EEE8FF' }}>
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel={partnerMapFooterCollapsed ? 'Espandi scheda posizione' : 'Comprimi scheda posizione'} onPress={() => setPartnerMapFooterCollapsed((collapsed) => !collapsed)} style={{ alignItems: 'center', justifyContent: 'center', paddingBottom: 10, minHeight: 24 }}>
                       <View style={{ width: 38, height: 5, borderRadius: 3, backgroundColor: '#C8CDD5' }} />
                     </TouchableOpacity>
                     {partnerMapFooterCollapsed ? (
                       <TouchableOpacity onPress={() => setPartnerMapFooterCollapsed(false)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ width: 42, height: 42, borderRadius: 21, overflow: 'hidden', backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
-                          {profiles.find((p) => p.user_id !== OWNER_USER_ID)?.avatar_url ? <Image source={{ uri: profiles.find((p) => p.user_id !== OWNER_USER_ID).avatar_url }} style={{ width: 42, height: 42 }} /> : <Text style={{ color: '#2F80ED', fontSize: 19, fontWeight: '900' }}>{(profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name?.[0] || 'S').toUpperCase()}</Text>}
+                        <View style={{ width: 42, height: 42, borderRadius: 21, overflow: 'hidden', backgroundColor: '#F0EBFF', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
+                          {profiles.find((p) => p.user_id !== OWNER_USER_ID)?.avatar_url ? <Image source={{ uri: profiles.find((p) => p.user_id !== OWNER_USER_ID).avatar_url }} style={{ width: 42, height: 42 }} /> : <Text style={{ color: '#7651F5', fontSize: 19, fontWeight: '900' }}>{(profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name?.[0] || 'S').toUpperCase()}</Text>}
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ color: '#202938', fontSize: 15, fontWeight: '900' }}>{[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}</Text>
                           <Text numberOfLines={1} style={{ color: '#778190', fontSize: 12, marginTop: 2 }}>{partnerPlaceLabel}</Text>
                           <Text numberOfLines={1} style={{ color: '#657184', fontSize: 11, marginTop: 3 }}>🔋 {partnerMapLocation.battery_level != null ? Math.round(Number(partnerMapLocation.battery_level)) + '%' : 'Batteria n/d'} · {getPartnerStayLabel()}</Text>
                         </View>
-                        <Text style={{ color: '#2F80ED', fontSize: 19, fontWeight: '900' }}>⌃</Text>
+                        <Text style={{ color: '#7651F5', fontSize: 19, fontWeight: '900' }}>⌃</Text>
                       </TouchableOpacity>
                     ) : (
                       <>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <View style={{ width: 52, height: 52, borderRadius: 26, overflow: 'hidden', backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                            {profiles.find((p) => p.user_id !== OWNER_USER_ID)?.avatar_url ? <Image source={{ uri: profiles.find((p) => p.user_id !== OWNER_USER_ID).avatar_url }} style={{ width: 52, height: 52 }} /> : <Text style={{ color: '#2F80ED', fontSize: 21, fontWeight: '900' }}>{(profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name?.[0] || 'S').toUpperCase()}</Text>}
+                          <View style={{ width: 52, height: 52, borderRadius: 26, overflow: 'hidden', backgroundColor: '#F0EBFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                            {profiles.find((p) => p.user_id !== OWNER_USER_ID)?.avatar_url ? <Image source={{ uri: profiles.find((p) => p.user_id !== OWNER_USER_ID).avatar_url }} style={{ width: 52, height: 52 }} /> : <Text style={{ color: '#7651F5', fontSize: 21, fontWeight: '900' }}>{(profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name?.[0] || 'S').toUpperCase()}</Text>}
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: '#202938', fontSize: 17, fontWeight: '900' }}>{[profiles.find((p) => p.user_id !== OWNER_USER_ID)?.first_name, profiles.find((p) => p.user_id !== OWNER_USER_ID)?.last_name].filter(Boolean).join(' ') || 'Socio'}</Text>
@@ -5654,7 +5660,7 @@ export default function App() {
                             </View>
                           </View>
                         </View>
-                        <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#2F80ED', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
+                        <TouchableOpacity onPress={viewPartnerHistory} style={{ marginTop: 15, minHeight: 48, borderRadius: 15, backgroundColor: '#7651F5', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 }}>
                           {partnerHistoryBusy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>Cronologia degli spostamenti</Text>}
                         </TouchableOpacity>
                         {!!partnerMapError && <Text style={{ color: '#B42318', fontSize: 11, marginTop: 8 }}>{partnerMapError}</Text>}
@@ -5664,9 +5670,9 @@ export default function App() {
                 </>
               ) : (
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 }}>
-                  {partnerMapBusy ? <ActivityIndicator size="large" color="#2F80ED" /> : <Text style={{ color: '#5D6674', fontSize: 15, textAlign: 'center' }}>Posizione del socio non disponibile.</Text>}
+                  {partnerMapBusy ? <ActivityIndicator size="large" color="#7651F5" /> : <Text style={{ color: '#5D6674', fontSize: 15, textAlign: 'center' }}>Posizione del socio non disponibile.</Text>}
                   {!!partnerMapError && <Text style={{ color: '#B42318', fontSize: 12, textAlign: 'center', marginTop: 10 }}>{partnerMapError}</Text>}
-                  <TouchableOpacity onPress={() => fetchPartnerMapLocation(true)} style={{ marginTop: 18, backgroundColor: '#2F80ED', borderRadius: 13, paddingHorizontal: 20, paddingVertical: 12 }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>Riprova</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => fetchPartnerMapLocation(true)} style={{ marginTop: 18, backgroundColor: '#7651F5', borderRadius: 13, paddingHorizontal: 20, paddingVertical: 12 }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>Riprova</Text></TouchableOpacity>
                 </View>
               )}
             </View>
