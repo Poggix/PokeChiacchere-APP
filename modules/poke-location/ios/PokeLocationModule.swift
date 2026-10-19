@@ -30,11 +30,10 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   private override init() {
     super.init()
     manager.delegate = self
-    manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-    manager.distanceFilter = 5
+    manager.desiredAccuracy = kCLLocationAccuracyBest
+    manager.distanceFilter = 10
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
-    manager.activityType = .fitness
     manager.showsBackgroundLocationIndicator = false
     UIDevice.current.isBatteryMonitoringEnabled = true
     NotificationCenter.default.addObserver(
@@ -69,11 +68,10 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
 
   private func startServices() {
     manager.delegate = self
-    manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-    manager.distanceFilter = 5
+    manager.desiredAccuracy = kCLLocationAccuracyBest
+    manager.distanceFilter = 10
     manager.allowsBackgroundLocationUpdates = true
     manager.pausesLocationUpdatesAutomatically = false
-    manager.activityType = .fitness
     manager.showsBackgroundLocationIndicator = false
 
     // iOS-native authorization flow: also ask for Always if the user previously
