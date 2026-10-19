@@ -4423,9 +4423,12 @@ export default function App() {
         return 0;
       };
       const versionComparison = compareVersions(latestVersion, installedVersion);
+      // Il numero build è l'identificatore più affidabile per gli aggiornamenti:
+      // evita che una versione scritta come 3.4.5 venga considerata più vecchia
+      // di 3.4.43 anche quando la build online è più recente.
       const updateAvailable =
-        versionComparison > 0 ||
-        (versionComparison === 0 && latestBuild > installedBuild);
+        latestBuild > installedBuild ||
+        (latestBuild === installedBuild && versionComparison > 0);
 
       if (updateAvailable) {
         const downloadUrl = String(latest.download_url || '').trim();
