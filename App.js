@@ -347,6 +347,21 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState('home');
+  // Save a separate scroll position for each screen so returning from a detail page
+  // restores the list (customers, sales, inventory, etc.) exactly where it was.
+  const mainScrollRef = useRef(null);
+  const pageScrollOffsetsRef = useRef({ home: 0 });
+  const currentPageRef = useRef('home');
+  const pendingScrollRestoreRef = useRef(null);
+  const previousPageRef = useRef('home');
+
+  useEffect(() => {
+    if (previousPageRef.current !== page) {
+      pendingScrollRestoreRef.current = page;
+      previousPageRef.current = page;
+    }
+  }, [page]);
+
   const [notificationTitle, setNotificationTitle] = useState('PokeChiacchere');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -5356,9 +5371,25 @@ export default function App() {
       </View>
 
       <ScrollView
+        ref={mainScrollRef}
         style={s.main}
         contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={100}
+        onScroll={(event) => {
+          const y = event.nativeEvent.contentOffset.y;
+          pageScrollOffsetsRef.current[currentPageRef.current] = y;
+        }}
+        onContentSizeChange={() => {
+          const targetPage = pendingScrollRestoreRef.current;
+          if (!targetPage || targetPage !== page) return;
+          pendingScrollRestoreRef.current = null;
+          currentPageRef.current = page;
+          const y = Math.max(0, Number(pageScrollOffsetsRef.current[page] || 0));
+          requestAnimationFrame(() => {
+            mainScrollRef.current?.scrollTo({ y, animated: false });
+          });
+        }}>
         {content}
         {loading && <ActivityIndicator color={C.cyan} style={{ margin: 16 }} />}
       </ScrollView>
