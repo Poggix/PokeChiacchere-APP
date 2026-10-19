@@ -3498,7 +3498,10 @@ export default function App() {
         tiktok_username: currentUsername,
         tiktok_user_id: profileId,
         tiktok_sec_uid: secUid,
-        tiktok_avatar_url: String(profile.avatar_larger || profile.avatar_medium || profile.avatar_thumb || '').trim() || null,
+        // Keep an already archived cloud avatar immutable. Never store a temporary TikTok CDN URL when cloud storage is available.
+        tiktok_avatar_url: String(selectedCustomer.tiktok_avatar_url || '').includes('/storage/v1/object/public/customer-tiktok-avatars/')
+          ? selectedCustomer.tiktok_avatar_url
+          : String(profile.avatar_storage_url || selectedCustomer.tiktok_avatar_url || '').trim() || null,
         tiktok_last_checked_at: String(result.checked_at || new Date().toISOString()),
       };
       await api('/rest/v1/customers?id=eq.' + encodeURIComponent(selectedCustomer.id), token, {
@@ -3563,7 +3566,7 @@ export default function App() {
       if (usernameWasChanged) {
         customerPatch.tiktok_user_id = null;
         customerPatch.tiktok_sec_uid = null;
-        customerPatch.tiktok_avatar_url = null;
+        // Preserve the first shared avatar once it has been archived; username edits must not replace it.
         customerPatch.tiktok_last_checked_at = null;
       }
       await api(
@@ -3585,7 +3588,6 @@ export default function App() {
         ...(usernameWasChanged ? {
           tiktok_user_id: null,
           tiktok_sec_uid: null,
-          tiktok_avatar_url: null,
           tiktok_last_checked_at: null,
         } : {}),
       };
@@ -3671,12 +3673,14 @@ export default function App() {
         />
         <View style={[s.customerHero, { borderColor: '#C39BFF' }]}>
           {selectedCustomer.tiktok_avatar_url ? (
-            <Image
+            <ExpoImage
               source={{ uri: selectedCustomer.tiktok_avatar_url }}
               style={[s.customerAvatar, { overflow: 'hidden' }]}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={150}
               onError={() => {
-                // L'avatar TikTok è remoto e può scadere: il nominativo resta sempre visibile.
+                // L'avatar archiviato nel cloud resta condiviso; la cache disco evita download ripetuti.
               }}
             />
           ) : (
