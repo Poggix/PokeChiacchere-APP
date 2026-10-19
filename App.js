@@ -347,11 +347,6 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState('home');
-  const mainScrollRef = useRef(null);
-  const pageScrollOffsetsRef = useRef({ home: 0 });
-  const currentPageRef = useRef('home');
-  const restoreScrollTimerRef = useRef(null);
-
   const [notificationTitle, setNotificationTitle] = useState('PokeChiacchere');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -5311,22 +5306,6 @@ export default function App() {
     );
   }
 
-  useEffect(() => {
-    const previousPage = currentPageRef.current;
-    if (previousPage !== page) {
-      if (restoreScrollTimerRef.current) clearTimeout(restoreScrollTimerRef.current);
-      // Restore the remembered position after the new page content has laid out.
-      restoreScrollTimerRef.current = setTimeout(() => {
-        const y = Math.max(0, Number(pageScrollOffsetsRef.current[page] || 0));
-        mainScrollRef.current?.scrollTo({ y, animated: false });
-      }, 80);
-      currentPageRef.current = page;
-    }
-    return () => {
-      if (restoreScrollTimerRef.current) clearTimeout(restoreScrollTimerRef.current);
-    };
-  }, [page]);
-
   let content;
   if (page === 'home') content = renderHome();
   else if (page === 'inventory') content = renderInventory();
@@ -5377,14 +5356,9 @@ export default function App() {
       </View>
 
       <ScrollView
-        ref={mainScrollRef}
         style={s.main}
         contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={100}
-        onScroll={(event) => {
-          pageScrollOffsetsRef.current[currentPageRef.current] = event.nativeEvent.contentOffset.y;
-        }}>
+        keyboardShouldPersistTaps="handled">
         {content}
         {loading && <ActivityIndicator color={C.cyan} style={{ margin: 16 }} />}
       </ScrollView>
