@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import CoreLocation
+import CoreMotion
 import UIKit
 
 public class PokeLocationModule: Module {
@@ -18,6 +19,7 @@ public class PokeLocationModule: Module {
 public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   public static let shared = PokeLocationManager()
   private let manager = CLLocationManager()
+  private let motionActivityManager = CMMotionActivityManager()
   private let defaults = UserDefaults.standard
   private let baseURL = "https://omovacbvfhmtjqrrgszx.supabase.co"
   private let apiKey = "sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9"
@@ -94,6 +96,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     // Request an immediate native fix so recovery-region monitoring can be
     // registered even when manager.location is nil at process launch.
     manager.requestLocation()
+    startMotionActivityMonitoring()
 
     // Region monitoring is event-driven and may relaunch the app after an
     // OS termination; it cannot override an explicit user force-quit.
@@ -107,11 +110,33 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     defaults.set(false, forKey: "pokeLocationEnabled")
     manager.stopUpdatingLocation()
     manager.stopMonitoringSignificantLocationChanges()
+    motionActivityManager.stopActivityUpdates()
     for region in manager.monitoredRegions where region.identifier == recoveryRegionId {
       manager.stopMonitoring(for: region)
     }
     for key in ["pokeLocationUserId", "pokeLocationAccessToken", "pokeLocationRefreshToken", "pokeLocationExpiresAt"] {
       defaults.removeObject(forKey: key)
+    }
+  }
+
+  private func startMotionActivityMonitoring() {
+    guard CMMotionActivityManager.isActivityAvailable() else {
+      NSLog("PokeLocation: motion activity is unavailable; continuing with Core Location")
+      return
+    }
+    // Request the iOS Motion & Fitness permission and use activity transitions
+    // as an additional cue to request a fresh GPS fix when movement resumes.
+    motionActivityManager.startActivityUpdates(to: OperationQueue.main) { [weak self] activity in
+      guard let self = self,
+            self.defaults.bool(forKey: "pokeLocationEnabled"),
+            let activity = activity else { return }
+      if activity.walking || activity.running || activity.automotive || activity.cycling {
+        self.manager.startUpdatingLocation()
+        self.manager.requestLocation()
+        if CLLocationManager.significantLocationChangeMonitoringAvailable() {
+          self.manager.startMonitoringSignificantLocationChanges()
+        }
+      }
     }
   }
 
