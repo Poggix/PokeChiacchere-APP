@@ -314,6 +314,62 @@ async function lookupByFetchLayer(apiKey: string, username: string | null, secUi
   return profile;
 }
 
+async function persistAvatarInStorage(profile: ReturnType<typeof normalizeProfile>): Promise<string> {
+  const sourceUrl = String(profile.avatar_larger || profile.avatar_medium || profile.avatar_thumb || "").trim();
+  if (!sourceUrl) return "";
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")?.replace(/\/$/, "");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Storage cloud non configurato: imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nei Secrets della Edge Function.");
+  }
+
+  const bucket = "customer-tiktok-avatars";
+  // Un percorso stabile per ID TikTok: se la foto è già stata archiviata, non la sovrascriviamo mai.
+  const objectPath = encodeURIComponent(profile.id) + ".image";
+  const publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + objectPath;
+  try {
+    const existing = await fetch(publicUrl, { method: "HEAD", signal: AbortSignal.timeout(8000) });
+    if (existing.ok) return publicUrl;
+  } catch (_) {
+    // Se la verifica HEAD fallisce, proviamo comunque l'upload non sovrascrivibile.
+  }
+
+  const avatarResponse = await fetch(sourceUrl, {
+    headers: { "User-Agent": "Mozilla/5.0", "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!avatarResponse.ok) throw new Error("Impossibile scaricare la foto TikTok (HTTP " + avatarResponse.status + ").");
+  const declaredSize = Number(avatarResponse.headers.get("content-length") || 0);
+  if (declaredSize > 5 * 1024 * 1024) throw new Error("La foto TikTok supera il limite di 5 MB.");
+  const contentType = (avatarResponse.headers.get("content-type") || "image/jpeg").split(";")[0].trim().toLowerCase();
+  if (!contentType.startsWith("image/")) throw new Error("TikTok non ha restituito un file immagine valido.");
+  const bytes = new Uint8Array(await avatarResponse.arrayBuffer());
+  if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("La foto TikTok è vuota o supera il limite di 5 MB.");
+
+  const uploadUrl = supabaseUrl + "/storage/v1/object/" + bucket + "/" + objectPath;
+  const upload = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + serviceKey,
+      "apikey": serviceKey,
+      "Content-Type": contentType,
+      "x-upsert": "false",
+    },
+    body: bytes,
+    signal: AbortSignal.timeout(20000),
+  });
+  if (upload.ok) return publicUrl;
+
+  // If another request uploaded the same profile photo at the same time, reuse that immutable object.
+  const errorText = await upload.text();
+  if (upload.status === 409 || /already exists|duplicate/i.test(errorText)) {
+    const existing = await fetch(publicUrl, { method: "HEAD", signal: AbortSignal.timeout(8000) });
+    if (existing.ok) return publicUrl;
+  }
+  throw new Error("Salvataggio foto nel cloud non riuscito (HTTP " + upload.status + "). " + errorText.slice(0, 240));
+}
+
 serve(async (req: Request) => {
   const requestId = crypto.randomUUID();
   console.info("[tiktok-profile-lookup] request_received", JSON.stringify({
@@ -380,15 +436,18 @@ serve(async (req: Request) => {
       profile = await lookupByUsername(username!);
     }
 
+    const avatarStorageUrl = await persistAvatarInStorage(profile);
     console.info("[tiktok-profile-lookup] lookup_succeeded", JSON.stringify({
       requestId,
       lookupMethod,
+      avatarStoredInCloud: Boolean(avatarStorageUrl),
     }));
     return json({
       ok: true,
       request_id: requestId,
       user: {
         ...profile,
+        avatar_storage_url: avatarStorageUrl || null,
         profile_url: "https://www.tiktok.com/@" + encodeURIComponent(profile.unique_id),
       },
       checked_at: new Date().toISOString(),
@@ -403,10 +462,12 @@ serve(async (req: Request) => {
       try {
         const fallbackProfile = await lookupByFetchLayer(apiKey, username, secUid, expectedId);
         const lookupMethod = "fetchlayer_" + (secUid ? "sec_uid" : (/^\\d+$/.test(expectedId) ? "user_id" : "username"));
+        const avatarStorageUrl = await persistAvatarInStorage(fallbackProfile);
         console.info("[tiktok-profile-lookup] lookup_succeeded", JSON.stringify({
           requestId,
           lookupMethod,
           fallback: true,
+          avatarStoredInCloud: Boolean(avatarStorageUrl),
           primaryError: primaryMessage,
         }));
         return json({
@@ -414,6 +475,7 @@ serve(async (req: Request) => {
           request_id: requestId,
           user: {
             ...fallbackProfile,
+            avatar_storage_url: avatarStorageUrl || null,
             profile_url: "https://www.tiktok.com/@" + encodeURIComponent(fallbackProfile.unique_id),
           },
           checked_at: new Date().toISOString(),
