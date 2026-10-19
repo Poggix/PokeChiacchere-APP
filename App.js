@@ -4881,33 +4881,7 @@ export default function App() {
             <Button title="Visualizza posizione socio" type="secondary" onPress={viewPartnerLocation} />
           </View>
         )}
-        {!isOwner && (
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Consenti tracciamento</Text>
-            <Text style={s.mutedSmall}>Attiva o disattiva la condivisione della tua posizione con l’owner. Per il tracciamento in background, iOS deve avere Posizione impostata su Sempre.</Text>
-            <Button title="Consenti tracciamento" onPress={enablePartnerLocationSharing} />
-            <Button title="Disattiva tracciamento" type="secondary" onPress={disablePartnerLocationSharing} />
-            <View style={{ height: 1, backgroundColor: C.border, marginVertical: 12 }} />
-            <Text style={s.panelTitle}>Attività in tempo reale</Text>
-            <Text style={s.mutedSmall}>Usa GPS e Movimento e fitness per aggiornare la posizione quando ti sposti. Questa funzione richiede i permessi di iOS e non può forzare il sistema a eseguire l’app se viene chiusa forzatamente.</Text>
-            <Button title="Attiva attività in tempo reale" onPress={async () => {
-              const motionHelp = 'Apri Impostazioni iPhone → Privacy e sicurezza → Movimento e fitness e abilita PokeChiacchere. Poi torna qui e premi “Consenti tracciamento”.';
-              const foreground = await Location.getForegroundPermissionsAsync();
-              const background = await Location.getBackgroundPermissionsAsync();
-              const services = await Location.hasServicesEnabledAsync();
-              if (!services || foreground.status !== 'granted' || background.status !== 'granted') {
-                Alert.alert('Completa i permessi', 'Servizi di localizzazione: ' + (services ? 'attivi' : 'disattivati') + '\nPosizione durante l’uso: ' + foreground.status + '\nPosizione in background: ' + background.status + '\n\n' + motionHelp, [
-                  { text: 'Apri impostazioni', onPress: () => Linking.openSettings() },
-                  { text: 'Annulla', style: 'cancel' },
-                ]);
-                return;
-              }
-              await enablePartnerLocationSharing();
-              Alert.alert('Attività in tempo reale', 'Tracciamento riattivato. Verifica che Movimento e fitness sia abilitato nelle impostazioni iOS.');
-            }} />
-            <Button title="Apri impostazioni iPhone" type="secondary" onPress={() => Linking.openSettings()} />
-          </View>
-        )}
+
         {!isOwner && (
           <View style={s.panel}>
             <Text style={s.panelTitle}>Posizione e movimento</Text>
