@@ -1155,7 +1155,7 @@ export default function App() {
     if (!isOwner || tiktokFeeSaving) return;
     const normalized = String(tiktokFeeDraft ?? '').trim().replace(',', '.');
     const value = Number(normalized);
-    if (!normalized || !Number.isFinite(value) || value < 0 || value > 100 || !/^\\d+$/.test(normalized)) {
+    if (!normalized || !Number.isFinite(value) || value < 0 || value > 100 || !/^\d+$/.test(normalized)) {
       Alert.alert('Percentuale non valida', 'Inserisci una percentuale intera tra 0 e 100, ad esempio 4.');
       return;
     }
