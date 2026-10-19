@@ -32,6 +32,7 @@
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "PokeChiacchere usa la posizione sempre per condividere gli spostamenti con il socio autorizzato.",
         "NSLocationWhenInUseUsageDescription": "PokeChiacchere usa la posizione per mostrare e condividere la posizione.",
+        "NSMotionUsageDescription": "PokeChiacchere usa Movimento e fitness per riconoscere quando riprendi a muoverti e migliorare gli aggiornamenti della posizione condivisa.",
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.transistorsoft.fetch",
           "com.transistorsoft.customtask"
