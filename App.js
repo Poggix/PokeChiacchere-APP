@@ -4868,6 +4868,28 @@ export default function App() {
             <Button title="Visualizza posizione socio" type="secondary" onPress={viewPartnerLocation} />
           </View>
         )}
+        {!isOwner && (
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>Posizione e movimento</Text>
+            <Text style={s.mutedSmall}>Per aggiornare la posizione anche in background, consenti Posizione → Sempre e abilita Movimento e fitness nelle impostazioni di iOS. Il rilevamento del movimento aiuta a richiedere una nuova posizione quando riprendi a spostarti.</Text>
+            <Button title="Apri impostazioni iPhone" type="secondary" onPress={() => Linking.openSettings()} />
+            <Button title="Verifica permessi e riattiva posizione" onPress={async () => {
+              const foreground = await Location.getForegroundPermissionsAsync();
+              const background = await Location.getBackgroundPermissionsAsync();
+              const services = await Location.hasServicesEnabledAsync();
+              const motionHelp = 'Controlla anche Impostazioni iPhone → Privacy e sicurezza → Movimento e fitness e abilita PokeChiacchere, se compare.';
+              if (!services || foreground.status !== 'granted' || background.status !== 'granted') {
+                Alert.alert('Permessi posizione da controllare', 'Servizi di localizzazione: ' + (services ? 'attivi' : 'disattivati') + '\nPosizione mentre usi l’app: ' + foreground.status + '\nPosizione in background: ' + background.status + '\n\n' + motionHelp, [
+                  { text: 'Annulla', style: 'cancel' },
+                  { text: 'Apri impostazioni', onPress: () => Linking.openSettings() },
+                ]);
+                return;
+              }
+              await enablePartnerLocationSharing();
+              Alert.alert('Controllo completato', 'I permessi di posizione risultano concessi. Per il rilevamento del movimento, verifica anche Movimento e fitness nelle impostazioni iOS.');
+            }} />
+          </View>
+        )}
         <View style={s.panel}>
           <Text style={s.panelTitle}>Il mio profilo</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
