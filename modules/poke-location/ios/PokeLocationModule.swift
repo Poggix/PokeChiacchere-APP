@@ -16,6 +16,12 @@ public class PokeLocationModule: Module {
   }
 }
 
+@available(iOS 17.0, *)
+private final class ModernLocationUpdates {
+  var session: CLBackgroundActivitySession?
+  var task: Task<Void, Never>?
+}
+
 public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   public static let shared = PokeLocationManager()
   private let manager = CLLocationManager()
@@ -26,8 +32,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   private let ownerId = "01bf546e-bf28-46ac-8370-b4fe30d8a8fd"
   private let recoveryRegionId = "pokechiacchere-location-recovery"
   private var latestLocation: CLLocation?
-  @available(iOS 17.0, *) private var backgroundActivitySession: CLBackgroundActivitySession?
-  @available(iOS 17.0, *) private var locationUpdatesTask: Task<Void, Never>?
+  private var modernLocationUpdates: AnyObject?
 
   private override init() {
     super.init()
@@ -113,11 +118,12 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   func stop() {
     defaults.set(false, forKey: "pokeLocationEnabled")
     manager.stopUpdatingLocation()
-    if #available(iOS 17.0, *) {
-      locationUpdatesTask?.cancel()
-      locationUpdatesTask = nil
-      backgroundActivitySession?.invalidate()
-      backgroundActivitySession = nil
+    if #available(iOS 17.0, *), let modern = modernLocationUpdates as? ModernLocationUpdates {
+      modern.task?.cancel()
+      modern.task = nil
+      modern.session?.invalidate()
+      modern.session = nil
+      modernLocationUpdates = nil
     }
     manager.stopMonitoringSignificantLocationChanges()
     motionActivityManager.stopActivityUpdates()
@@ -134,19 +140,28 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
       // Modern Core Location stream. Keep CLLocationManager's significant-change
       // monitoring as a wake-up/fallback path, while the stream supplies frequent
       // updates when iOS permits background execution.
-      guard locationUpdatesTask == nil else { return }
-      backgroundActivitySession = CLBackgroundActivitySession()
-      locationUpdatesTask = Task { [weak self] in
+      let modern: ModernLocationUpdates
+      if let existing = modernLocationUpdates as? ModernLocationUpdates {
+        modern = existing
+      } else {
+        modern = ModernLocationUpdates()
+        modernLocationUpdates = modern
+      }
+      guard modern.task == nil else { return }
+      modern.session = CLBackgroundActivitySession()
+      modern.task = Task { [weak self] in
         guard let self = self else { return }
         do {
           for try await update in CLLocationUpdate.liveUpdates() {
             guard self.defaults.bool(forKey: "pokeLocationEnabled") else { break }
-            if update.authorizationDenied || update.authorizationDeniedGlobally {
-              NSLog("PokeLocation diagnostics: liveUpdates authorization denied")
-              continue
-            }
-            if update.accuracyLimited {
-              NSLog("PokeLocation diagnostics: precise location is limited")
+            if #available(iOS 18.0, *) {
+              if update.authorizationDenied || update.authorizationDeniedGlobally {
+                NSLog("PokeLocation diagnostics: liveUpdates authorization denied")
+                continue
+              }
+              if update.accuracyLimited {
+                NSLog("PokeLocation diagnostics: precise location is limited")
+              }
             }
             if let location = update.location {
               self.processLocation(location)
@@ -155,9 +170,11 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
         } catch {
           NSLog("PokeLocation diagnostics: liveUpdates stream ended: %@", error.localizedDescription)
         }
-        self.locationUpdatesTask = nil
-        self.backgroundActivitySession?.invalidate()
-        self.backgroundActivitySession = nil
+        if #available(iOS 17.0, *), let modern = self.modernLocationUpdates as? ModernLocationUpdates {
+          modern.task = nil
+          modern.session?.invalidate()
+          modern.session = nil
+        }
       }
     } else {
       // Compatibility path for iOS 15 and 16.
