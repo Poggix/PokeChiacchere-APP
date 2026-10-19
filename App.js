@@ -5347,64 +5347,86 @@ export default function App() {
 
       {pickerModal()}
       <Modal visible={tiktokFeeModalVisible && isOwner} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setTiktokFeeModalVisible(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.panel2 }}>
-            <TouchableOpacity onPress={() => setTiktokFeeModalVisible(false)} style={{ padding: 8 }}><Text style={{ color: C.muted, fontSize: 16 }}>Annulla</Text></TouchableOpacity>
-            <Text style={{ color: C.text, fontSize: 18, fontWeight: '800' }}>Commissioni TikTok</Text>
-            <TouchableOpacity onPress={saveTiktokFeeSettings} disabled={tiktokFeeSaving} style={{ padding: 8 }}><Text style={{ color: C.cyan, fontSize: 16, fontWeight: '800' }}>{tiktokFeeSaving ? 'Salvo…' : 'Salva'}</Text></TouchableOpacity>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#080D18' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, backgroundColor: '#111B2D', borderBottomWidth: 1, borderBottomColor: '#2B3D59' }}>
+            <TouchableOpacity onPress={() => setTiktokFeeModalVisible(false)} style={{ paddingVertical: 8, paddingHorizontal: 4 }}><Text style={{ color: '#9BAAC2', fontSize: 16, fontWeight: '600' }}>Annulla</Text></TouchableOpacity>
+            <Text style={{ color: '#F5F8FF', fontSize: 18, fontWeight: '900' }}>Commissioni TikTok</Text>
+            <TouchableOpacity onPress={saveTiktokFeeSettings} disabled={tiktokFeeSaving} style={{ paddingVertical: 8, paddingHorizontal: 4 }}><Text style={{ color: '#55B5FF', fontSize: 16, fontWeight: '900' }}>{tiktokFeeSaving ? 'Salvo…' : 'Salva'}</Text></TouchableOpacity>
           </View>
-          <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 36 }} keyboardShouldPersistTaps="handled">
-            <View style={s.panel}>
-              <Text style={s.panelTitle}>Percentuale predefinita</Text>
-              <Text style={s.mutedText}>La percentuale viene ricordata su questo dispositivo e usata per le nuove vendite.</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 }}>
-                <TextInput value={tiktokFeeDraft} onChangeText={setTiktokFeeDraft} keyboardType="decimal-pad" placeholder="Es. 5" placeholderTextColor={C.muted} style={[s.input, { flex: 1, marginBottom: 0 }]} />
-                <Text style={{ color: C.text, fontSize: 20, fontWeight: '800' }}>%</Text>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            <View style={{ backgroundColor: '#111B2D', borderColor: '#2B3D59', borderWidth: 1, borderRadius: 22, padding: 18 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#173A5C', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#55B5FF', fontSize: 22, fontWeight: '900' }}>%</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: '#F5F8FF', fontSize: 18, fontWeight: '900' }}>Percentuale predefinita</Text><Text style={{ color: '#9BAAC2', fontSize: 13, marginTop: 3 }}>Usata per le nuove vendite su questo dispositivo.</Text></View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <TextInput value={tiktokFeeDraft} onChangeText={setTiktokFeeDraft} keyboardType="decimal-pad" placeholder="Es. 4" placeholderTextColor="#71819B" style={{ flex: 1, color: '#F5F8FF', backgroundColor: '#080D18', borderWidth: 1, borderColor: '#36506F', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 24, fontWeight: '800' }} />
+                <Text style={{ color: '#55B5FF', fontSize: 26, fontWeight: '900' }}>%</Text>
               </View>
             </View>
-            <View style={[s.panel, { marginTop: 14 }]}>
-              <Text style={s.panelTitle}>Applica automaticamente agli ordini</Text>
-              <Text style={s.mutedText}>Scegli se aggiornare le commissioni delle vendite già registrate.</Text>
+
+            <View style={{ backgroundColor: '#111B2D', borderColor: '#2B3D59', borderWidth: 1, borderRadius: 22, padding: 18, marginTop: 14 }}>
+              <Text style={{ color: '#F5F8FF', fontSize: 18, fontWeight: '900' }}>Applica agli ordini esistenti</Text>
+              <Text style={{ color: '#9BAAC2', fontSize: 13, lineHeight: 19, marginTop: 5, marginBottom: 10 }}>Scegli quali vendite ricalcolare con la nuova percentuale.</Text>
               {[
-                { key: 'none', label: 'Non modificare gli ordini esistenti' },
-                { key: 'all', label: 'Tutti gli ordini' },
-                { key: 'selected', label: 'Solo gli ordini selezionati' },
-              ].map((option) => (
-                <TouchableOpacity key={option.key} onPress={() => setTiktokFeeApplyMode(option.key)} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 13, gap: 10, borderBottomWidth: 1, borderBottomColor: C.panel2 }}>
-                  <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: tiktokFeeApplyMode === option.key ? C.cyan : C.muted, alignItems: 'center', justifyContent: 'center' }}>
-                    {tiktokFeeApplyMode === option.key && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: C.cyan }} />}
-                  </View>
-                  <Text style={{ color: C.text, flex: 1, fontSize: 14, fontWeight: '600' }}>{option.label}</Text>
-                </TouchableOpacity>
-              ))}
+                { key: 'none', label: 'Solo nuove vendite', detail: 'Lascia invariati gli ordini già registrati', icon: '＋' },
+                { key: 'all', label: 'Tutti gli ordini', detail: `${tiktokFeeOrders.length} ordini · aggiorna l'intero archivio`, icon: '▦' },
+                { key: 'selected', label: 'Scegli gli ordini', detail: 'Spunta soltanto quelli da aggiornare', icon: '☑' },
+              ].map((option) => {
+                const active = tiktokFeeApplyMode === option.key;
+                return <TouchableOpacity key={option.key} onPress={() => setTiktokFeeApplyMode(option.key)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, marginTop: 8, borderRadius: 15, backgroundColor: active ? '#173A5C' : '#0C1524', borderWidth: 1, borderColor: active ? '#55B5FF' : '#263750' }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: active ? '#225887' : '#192943', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: active ? '#FFFFFF' : '#9BAAC2', fontSize: 19, fontWeight: '900' }}>{option.icon}</Text></View>
+                  <View style={{ flex: 1 }}><Text style={{ color: '#F5F8FF', fontSize: 15, fontWeight: '800' }}>{option.label}</Text><Text style={{ color: '#9BAAC2', fontSize: 12, marginTop: 3, lineHeight: 17 }}>{option.detail}</Text></View>
+                  <View style={{ width: 23, height: 23, borderRadius: 12, borderWidth: 2, borderColor: active ? '#55B5FF' : '#71819B', alignItems: 'center', justifyContent: 'center' }}>{active && <View style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: '#55B5FF' }} />}</View>
+                </TouchableOpacity>;
+              })}
             </View>
+
             {tiktokFeeApplyMode === 'selected' && (
-              <View style={[s.panel, { marginTop: 14 }]}>
-                <Text style={s.panelTitle}>Seleziona ordini</Text>
-                <Text style={s.mutedText}>Spunta gli ordini da aggiornare. La selezione include tutte le righe dello stesso numero d'ordine.</Text>
+              <View style={{ backgroundColor: '#111B2D', borderColor: '#2B3D59', borderWidth: 1, borderRadius: 22, padding: 16, marginTop: 14 }}>
+                <Text style={{ color: '#F5F8FF', fontSize: 18, fontWeight: '900' }}>Seleziona gli ordini</Text>
+                <Text style={{ color: '#9BAAC2', fontSize: 13, lineHeight: 19, marginTop: 5 }}>Qui trovi cliente, prodotti, importo e commissione attuale, non solo il numero d'ordine.</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 13, marginBottom: 4 }}>
+                  <TouchableOpacity onPress={() => setTiktokFeeOrderSelection(Object.fromEntries(tiktokFeeOrders.map((order) => [order.key, true])))} style={{ flex: 1, backgroundColor: '#173A5C', borderWidth: 1, borderColor: '#2D6A9D', paddingVertical: 11, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#8BD0FF', fontSize: 13, fontWeight: '800' }}>✓ Seleziona tutti</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => setTiktokFeeOrderSelection({})} style={{ flex: 1, backgroundColor: '#192943', borderWidth: 1, borderColor: '#2B3D59', paddingVertical: 11, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#D5DEED', fontSize: 13, fontWeight: '800' }}>Deseleziona</Text></TouchableOpacity>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 8 }}>
+                  <Text style={{ color: '#9BAAC2', fontSize: 12 }}>{tiktokFeeOrders.filter((order) => tiktokFeeOrderSelection[order.key]).length} di {tiktokFeeOrders.length} selezionati</Text>
+                  <Text style={{ color: '#55B5FF', fontSize: 12, fontWeight: '800' }}>NUOVA ALIQUOTA {String(tiktokFeeDraft || '0')}%</Text>
+                </View>
                 {tiktokFeeOrders.map((order) => {
                   const checked = !!tiktokFeeOrderSelection[order.key];
+                  const products = [...new Set(order.rows.map((row) => String(row.product || 'Prodotto non specificato')))];
+                  const customer = [...new Set(order.rows.map((row) => String(row.customer_name || '').trim()).filter(Boolean))].join(', ') || 'Cliente non indicato';
+                  const quantity = order.rows.reduce((sum, row) => sum + num(row.quantity), 0);
+                  const currentFees = order.rows.reduce((sum, row) => sum + num(row.tiktok_fees), 0);
                   return (
-                    <TouchableOpacity key={order.key} onPress={() => setTiktokFeeOrderSelection((prev) => ({ ...prev, [order.key]: !prev[order.key] }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.panel2 }}>
-                      <View style={{ width: 23, height: 23, borderRadius: 6, borderWidth: 2, borderColor: checked ? C.cyan : C.muted, backgroundColor: checked ? C.cyan : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                        {checked && <Text style={{ color: C.bg, fontWeight: '900' }}>✓</Text>}
+                    <TouchableOpacity key={order.key} onPress={() => setTiktokFeeOrderSelection((prev) => ({ ...prev, [order.key]: !prev[order.key] }))} activeOpacity={0.8} style={{ padding: 14, marginTop: 9, borderRadius: 17, backgroundColor: checked ? '#142E49' : '#0C1524', borderWidth: 1, borderColor: checked ? '#55B5FF' : '#263750' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11 }}>
+                        <View style={{ width: 25, height: 25, marginTop: 1, borderRadius: 7, borderWidth: 2, borderColor: checked ? '#55B5FF' : '#71819B', backgroundColor: checked ? '#168BFF' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>{checked && <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '900' }}>✓</Text>}</View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#F5F8FF', fontSize: 14, fontWeight: '900' }} numberOfLines={2}>Ordine {order.key.startsWith('Senza numero') ? 'senza numero' : order.key}</Text>
+                          <Text style={{ color: '#D5DEED', fontSize: 13, fontWeight: '700', marginTop: 5 }}>{customer}</Text>
+                          <Text style={{ color: '#9BAAC2', fontSize: 12, lineHeight: 17, marginTop: 4 }} numberOfLines={3}>{products.join(' · ')}</Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+                            <View style={{ backgroundColor: '#192943', paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 }}><Text style={{ color: '#D5DEED', fontSize: 11, fontWeight: '700' }}>{toItalianDate(order.date) || 'Data n/d'}</Text></View>
+                            <View style={{ backgroundColor: '#192943', paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 }}><Text style={{ color: '#D5DEED', fontSize: 11, fontWeight: '700' }}>{quantity} pezzi · {order.rows.length} righe</Text></View>
+                            <View style={{ backgroundColor: '#392C1A', paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 }}><Text style={{ color: '#FFD43B', fontSize: 11, fontWeight: '800' }}>Fee attuale {money(currentFees)}</Text></View>
+                          </View>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', marginLeft: 2 }}>
+                          <Text style={{ color: '#4DDFAB', fontSize: 16, fontWeight: '900' }}>{money(order.total)}</Text>
+                          <Text style={{ color: '#9BAAC2', fontSize: 10, marginTop: 4 }}>totale</Text>
+                        </View>
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: C.text, fontWeight: '700' }}>{order.key}</Text>
-                        <Text style={s.mutedSmall}>{order.date || 'Data non disponibile'} · {order.rows.length} righe</Text>
-                      </View>
-                      <Text style={{ color: C.text, fontWeight: '700' }}>{money(order.total)}</Text>
                     </TouchableOpacity>
                   );
                 })}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                  <TouchableOpacity onPress={() => setTiktokFeeOrderSelection(Object.fromEntries(tiktokFeeOrders.map((order) => [order.key, true])))} style={{ backgroundColor: C.panel2, padding: 10, borderRadius: 10 }}><Text style={{ color: C.cyan, fontWeight: '700' }}>Seleziona tutti</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => setTiktokFeeOrderSelection({})} style={{ backgroundColor: C.panel2, padding: 10, borderRadius: 10 }}><Text style={{ color: C.cyan, fontWeight: '700' }}>Deseleziona tutti</Text></TouchableOpacity>
-                </View>
               </View>
             )}
-            <TouchableOpacity onPress={saveTiktokFeeSettings} disabled={tiktokFeeSaving} style={{ backgroundColor: C.cyan, borderRadius: 14, padding: 15, alignItems: 'center', marginTop: 16, opacity: tiktokFeeSaving ? 0.6 : 1 }}>
-              <Text style={{ color: C.bg, fontSize: 16, fontWeight: '900' }}>{tiktokFeeSaving ? 'Salvataggio…' : 'Salva percentuale e applica'}</Text>
+            <TouchableOpacity onPress={saveTiktokFeeSettings} disabled={tiktokFeeSaving} activeOpacity={0.85} style={{ backgroundColor: '#168BFF', borderRadius: 16, padding: 17, alignItems: 'center', marginTop: 18, opacity: tiktokFeeSaving ? 0.6 : 1, shadowColor: '#168BFF', shadowOpacity: 0.22, shadowRadius: 10, elevation: 3 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }}>{tiktokFeeSaving ? 'Salvataggio in corso…' : 'Salva e applica la percentuale'}</Text>
+              <Text style={{ color: '#EAF5FF', fontSize: 12, marginTop: 4 }}>{tiktokFeeApplyMode === 'all' ? `Aggiorna ${tiktokFeeOrders.length} ordini` : tiktokFeeApplyMode === 'selected' ? `Aggiorna ${tiktokFeeOrders.filter((order) => tiktokFeeOrderSelection[order.key]).length} ordini selezionati` : 'La modifica vale per le nuove vendite'}</Text>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
