@@ -1,8 +1,8 @@
 {
-  "version": "3.4.31",
-  "build": 60,
+  "version": "3.4.32",
+  "build": 61,
   "folder_url": "https://www.icloud.com/iclouddrive/00dullj3G9SfsDqskdPiFaL9Q#AGGIORNAMENTO_-_IPA_-_POKECHIACCHERE",
   "filename_pattern": "PokeChiacchere-v{version}-build{build}.ipa",
-  "notes": "Versione 3.4.31 build 60",
-  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.31-build60/PokeChiacchere-v3.4.31-build60.ipa"
+  "notes": "Versione 3.4.32 build 61",
+  "download_url": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.32-build61/PokeChiacchere-v3.4.32-build61.ipa"
 }
