@@ -347,6 +347,11 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState('home');
+  const mainScrollRef = useRef(null);
+  const pageScrollOffsetsRef = useRef({ home: 0 });
+  const currentPageRef = useRef('home');
+  const restoreScrollTimerRef = useRef(null);
+
   const [notificationTitle, setNotificationTitle] = useState('PokeChiacchere');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -4139,7 +4144,8 @@ export default function App() {
       const localResponse = await fetch(uri);
       const blob = await localResponse.blob();
       const extension = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
-      const objectPath = `${session.user.id}/avatar-${Date.now()}.${extension}`;
+      // Percorso stabile: le nuove foto sostituiscono davvero l'avatar precedente.
+      const objectPath = `${session.user.id}/avatar.${extension}`;
       const uploadResponse = await fetch(`${URL}/storage/v1/object/profile-photos/${objectPath}`, {
         method: 'POST',
         headers: {
@@ -4154,7 +4160,7 @@ export default function App() {
         const errorText = await uploadResponse.text();
         throw new Error(errorText || 'Caricamento foto non riuscito');
       }
-      setProfilePhotoUrl(`${URL}/storage/v1/object/public/profile-photos/${objectPath}`);
+      setProfilePhotoUrl(`${URL}/storage/v1/object/public/profile-photos/${objectPath}?v=${Date.now()}`);
       Alert.alert('Foto caricata', 'Ricordati di premere “Salva profilo” per renderla visibile agli altri soci.');
     } catch (e) {
       Alert.alert('Errore foto', 'Controlla la configurazione dello storage Supabase e riprova. ' + e.message);
@@ -4172,9 +4178,9 @@ export default function App() {
           Alert.alert('Permesso fotocamera', 'Consenti l’accesso alla fotocamera nelle impostazioni del dispositivo.');
           return;
         }
-        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.75, exif: false });
       } else if (source === 'files') {
-        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+        result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.75, exif: false });
       } else {
         result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
       }
@@ -5283,6 +5289,22 @@ export default function App() {
     );
   }
 
+  useEffect(() => {
+    const previousPage = currentPageRef.current;
+    if (previousPage !== page) {
+      if (restoreScrollTimerRef.current) clearTimeout(restoreScrollTimerRef.current);
+      // Restore the remembered position after the new page content has laid out.
+      restoreScrollTimerRef.current = setTimeout(() => {
+        const y = Math.max(0, Number(pageScrollOffsetsRef.current[page] || 0));
+        mainScrollRef.current?.scrollTo({ y, animated: false });
+      }, 80);
+      currentPageRef.current = page;
+    }
+    return () => {
+      if (restoreScrollTimerRef.current) clearTimeout(restoreScrollTimerRef.current);
+    };
+  }, [page]);
+
   let content;
   if (page === 'home') content = renderHome();
   else if (page === 'inventory') content = renderInventory();
@@ -5333,9 +5355,14 @@ export default function App() {
       </View>
 
       <ScrollView
+        ref={mainScrollRef}
         style={s.main}
         contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={100}
+        onScroll={(event) => {
+          pageScrollOffsetsRef.current[currentPageRef.current] = event.nativeEvent.contentOffset.y;
+        }}>
         {content}
         {loading && <ActivityIndicator color={C.cyan} style={{ margin: 16 }} />}
       </ScrollView>
