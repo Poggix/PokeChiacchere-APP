@@ -26,6 +26,8 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   private let ownerId = "01bf546e-bf28-46ac-8370-b4fe30d8a8fd"
   private let recoveryRegionId = "pokechiacchere-location-recovery"
   private var latestLocation: CLLocation?
+  @available(iOS 17.0, *) private var backgroundActivitySession: CLBackgroundActivitySession?
+  @available(iOS 17.0, *) private var locationUpdatesTask: Task<Void, Never>?
 
   private override init() {
     super.init()
@@ -90,7 +92,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
       break
     }
 
-    manager.startUpdatingLocation()
+    startContinuousLocationUpdates()
     if CLLocationManager.significantLocationChangeMonitoringAvailable() {
       manager.startMonitoringSignificantLocationChanges()
     }
@@ -111,6 +113,12 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   func stop() {
     defaults.set(false, forKey: "pokeLocationEnabled")
     manager.stopUpdatingLocation()
+    if #available(iOS 17.0, *) {
+      locationUpdatesTask?.cancel()
+      locationUpdatesTask = nil
+      backgroundActivitySession?.invalidate()
+      backgroundActivitySession = nil
+    }
     manager.stopMonitoringSignificantLocationChanges()
     motionActivityManager.stopActivityUpdates()
     for region in manager.monitoredRegions where region.identifier == recoveryRegionId {
@@ -119,6 +127,53 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
     for key in ["pokeLocationUserId", "pokeLocationAccessToken", "pokeLocationRefreshToken", "pokeLocationExpiresAt"] {
       defaults.removeObject(forKey: key)
     }
+  }
+
+  private func startContinuousLocationUpdates() {
+    if #available(iOS 17.0, *) {
+      // Modern Core Location stream. Keep CLLocationManager's significant-change
+      // monitoring as a wake-up/fallback path, while the stream supplies frequent
+      // updates when iOS permits background execution.
+      guard locationUpdatesTask == nil else { return }
+      backgroundActivitySession = CLBackgroundActivitySession()
+      locationUpdatesTask = Task { [weak self] in
+        guard let self = self else { return }
+        do {
+          for try await update in CLLocationUpdate.liveUpdates() {
+            guard self.defaults.bool(forKey: "pokeLocationEnabled") else { break }
+            if update.authorizationDenied || update.authorizationDeniedGlobally {
+              NSLog("PokeLocation diagnostics: liveUpdates authorization denied")
+              continue
+            }
+            if update.accuracyLimited {
+              NSLog("PokeLocation diagnostics: precise location is limited")
+            }
+            if let location = update.location {
+              self.processLocation(location)
+            }
+          }
+        } catch {
+          NSLog("PokeLocation diagnostics: liveUpdates stream ended: %@", error.localizedDescription)
+        }
+        self.locationUpdatesTask = nil
+        self.backgroundActivitySession?.invalidate()
+        self.backgroundActivitySession = nil
+      }
+    } else {
+      // Compatibility path for iOS 15 and 16.
+      manager.startUpdatingLocation()
+    }
+  }
+
+  private func processLocation(_ location: CLLocation) {
+    guard defaults.bool(forKey: "pokeLocationEnabled") else { return }
+    latestLocation = location
+    upload(location, retried: false)
+    if !manager.monitoredRegions.contains(where: { $0.identifier == recoveryRegionId }) {
+      monitorRecoveryRegion(around: location)
+    }
+    NSLog("PokeLocation diagnostics: fix age=%.1fs accuracy=%.1fm",
+          max(0, Date().timeIntervalSince(location.timestamp)), max(0, location.horizontalAccuracy))
   }
 
   private func startMotionActivityMonitoring() {
@@ -133,7 +188,7 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
             self.defaults.bool(forKey: "pokeLocationEnabled"),
             let activity = activity else { return }
       if activity.walking || activity.running || activity.automotive || activity.cycling {
-        self.manager.startUpdatingLocation()
+        self.startContinuousLocationUpdates()
         self.manager.requestLocation()
         if CLLocationManager.significantLocationChangeMonitoringAvailable() {
           self.manager.startMonitoringSignificantLocationChanges()
@@ -161,12 +216,8 @@ public final class PokeLocationManager: NSObject, CLLocationManagerDelegate {
   }
 
   public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-    guard defaults.bool(forKey: "pokeLocationEnabled"), let loc = locations.last else { return }
-    latestLocation = loc
-    upload(loc, retried: false)
-    if !manager.monitoredRegions.contains(where: { $0.identifier == recoveryRegionId }) {
-      monitorRecoveryRegion(around: loc)
-    }
+    guard let loc = locations.last else { return }
+    processLocation(loc)
   }
 
   public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
