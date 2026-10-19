@@ -1155,8 +1155,8 @@ export default function App() {
     if (!isOwner || tiktokFeeSaving) return;
     const normalized = String(tiktokFeeDraft ?? '').trim().replace(',', '.');
     const value = Number(normalized);
-    if (!normalized || !Number.isFinite(value) || value < 0 || value > 100) {
-      Alert.alert('Percentuale non valida', 'Inserisci un valore tra 0 e 100.');
+    if (!normalized || !Number.isFinite(value) || value < 0 || value > 100 || !/^\\d+(?:\\.\\d{1,3})?$/.test(normalized)) {
+      Alert.alert('Percentuale non valida', 'Inserisci un valore tra 0 e 100, con massimo 3 cifre decimali (es. 4,125).');
       return;
     }
     const selectedKeys = tiktokFeeApplyMode === 'all'
@@ -5357,10 +5357,10 @@ export default function App() {
             <View style={{ backgroundColor: '#111B2D', borderColor: '#2B3D59', borderWidth: 1, borderRadius: 22, padding: 18 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#173A5C', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#55B5FF', fontSize: 22, fontWeight: '900' }}>%</Text></View>
-                <View style={{ flex: 1 }}><Text style={{ color: '#F5F8FF', fontSize: 18, fontWeight: '900' }}>Percentuale predefinita</Text><Text style={{ color: '#9BAAC2', fontSize: 13, marginTop: 3 }}>Usata per le nuove vendite su questo dispositivo.</Text></View>
+                <View style={{ flex: 1 }}><Text style={{ color: '#F5F8FF', fontSize: 18, fontWeight: '900' }}>Percentuale predefinita</Text><Text style={{ color: '#9BAAC2', fontSize: 13, marginTop: 3 }}>Puoi inserire fino a 3 decimali, ad esempio 4,125%. Usata per le nuove vendite su questo dispositivo.</Text></View>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <TextInput value={tiktokFeeDraft} onChangeText={setTiktokFeeDraft} keyboardType="decimal-pad" placeholder="Es. 4" placeholderTextColor="#71819B" style={{ flex: 1, color: '#F5F8FF', backgroundColor: '#080D18', borderWidth: 1, borderColor: '#36506F', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 24, fontWeight: '800' }} />
+                <TextInput value={tiktokFeeDraft} onChangeText={setTiktokFeeDraft} keyboardType="decimal-pad" placeholder="Es. 4,125" placeholderTextColor="#71819B" style={{ flex: 1, color: '#F5F8FF', backgroundColor: '#080D18', borderWidth: 1, borderColor: '#36506F', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 24, fontWeight: '800' }} />
                 <Text style={{ color: '#55B5FF', fontSize: 26, fontWeight: '900' }}>%</Text>
               </View>
             </View>
@@ -5392,7 +5392,7 @@ export default function App() {
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 8 }}>
                   <Text style={{ color: '#9BAAC2', fontSize: 12 }}>{tiktokFeeOrders.filter((order) => tiktokFeeOrderSelection[order.key]).length} di {tiktokFeeOrders.length} selezionati</Text>
-                  <Text style={{ color: '#55B5FF', fontSize: 12, fontWeight: '800' }}>NUOVA ALIQUOTA {String(tiktokFeeDraft || '0')}%</Text>
+                  <Text style={{ color: '#55B5FF', fontSize: 12, fontWeight: '800' }}>NUOVA ALIQUOTA {String(tiktokFeeDraft || '0').replace('.', ',')}%</Text>
                 </View>
                 {tiktokFeeOrders.map((order) => {
                   const checked = !!tiktokFeeOrderSelection[order.key];
