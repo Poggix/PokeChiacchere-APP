@@ -455,7 +455,7 @@ export default function App() {
     customers: [],
   });
   // Mostra i dati salvati localmente subito all'avvio, poi li aggiorna da Supabase.
-  const [recordsReady, setRecordsReady] = useState(false);
+  const [recordsReadyForUser, setRecordsReadyForUser] = useState('');
 
   const token = session?.access_token;
   const isOwner =
@@ -561,7 +561,7 @@ export default function App() {
         const cached = JSON.parse(cachedRaw);
         if (cached && tables.every((table) => Array.isArray(cached[table]))) {
           setRecords(cached);
-          setRecordsReady(true);
+          setRecordsReadyForUser(session?.user?.id || '');
         }
       }
     } catch (cacheError) {
@@ -590,7 +590,7 @@ export default function App() {
         next[table] = Array.isArray(values[i]) ? values[i] : [];
       });
       setRecords(next);
-      setRecordsReady(true);
+      setRecordsReadyForUser(session?.user?.id || '');
       // La cache è per-account: i dati di un socio non vengono mostrati all'altro.
       AsyncStorage.setItem(cacheKey, JSON.stringify(next)).catch((cacheError) => {
         console.warn('Impossibile aggiornare la cache dati:', cacheError?.message || cacheError);
@@ -626,7 +626,7 @@ export default function App() {
         await AsyncStorage.removeItem('pokechiacchere_session').catch(() => {});
         setSession(null);
       }
-      setRecordsReady(true);
+      setRecordsReadyForUser(session?.user?.id || '');
       Alert.alert('Errore caricamento', e.message);
     }
   }, [token, session]);
@@ -5316,7 +5316,7 @@ export default function App() {
     );
   }
 
-  if (session && !showAccountLogin && !recordsReady) {
+  if (session && !showAccountLogin && recordsReadyForUser !== session.user.id) {
     return (
       <SafeAreaView style={s.safe}>
         <StatusBar barStyle="light-content" backgroundColor={C.bg} />
