@@ -454,6 +454,8 @@ export default function App() {
     products: [],
     customers: [],
   });
+  // Mostra i dati salvati localmente subito all'avvio, poi li aggiorna da Supabase.
+  const [recordsReady, setRecordsReady] = useState(false);
 
   const token = session?.access_token;
   const isOwner =
@@ -542,15 +544,30 @@ export default function App() {
 
   const loadData = useCallback(async () => {
     if (!token) return;
+    const tables = [
+      'sales',
+      'purchases',
+      'internal_payments',
+      'withdrawals',
+      'products',
+      'customers',
+    ];
+    const cacheKey = `pokechiacchere_records_${session?.user?.id || 'default'}`;
     try {
-      const tables = [
-        'sales',
-        'purchases',
-        'internal_payments',
-        'withdrawals',
-        'products',
-        'customers',
-      ];
+      // In caso di riapertura, ripristina prima l'ultimo snapshot locale:
+      // così i valori non lampeggiano a zero mentre la rete risponde.
+      const cachedRaw = await AsyncStorage.getItem(cacheKey);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (cached && tables.every((table) => Array.isArray(cached[table]))) {
+          setRecords(cached);
+          setRecordsReady(true);
+        }
+      }
+    } catch (cacheError) {
+      console.warn('Cache dati locale non disponibile:', cacheError?.message || cacheError);
+    }
+    try {
       // Se una tabella non ha created_at, la richiesta senza ordinamento evita di bloccare tutti gli archivi.
       const values = await Promise.all(
         tables.map(async (table) => {
@@ -573,6 +590,11 @@ export default function App() {
         next[table] = Array.isArray(values[i]) ? values[i] : [];
       });
       setRecords(next);
+      setRecordsReady(true);
+      // La cache è per-account: i dati di un socio non vengono mostrati all'altro.
+      AsyncStorage.setItem(cacheKey, JSON.stringify(next)).catch((cacheError) => {
+        console.warn('Impossibile aggiornare la cache dati:', cacheError?.message || cacheError);
+      });
     } catch (e) {
       // Se il token è scaduto, prova a rinnovarlo usando il refresh_token salvato.
       if (
@@ -604,6 +626,7 @@ export default function App() {
         await AsyncStorage.removeItem('pokechiacchere_session').catch(() => {});
         setSession(null);
       }
+      setRecordsReady(true);
       Alert.alert('Errore caricamento', e.message);
     }
   }, [token, session]);
@@ -5293,6 +5316,27 @@ export default function App() {
     );
   }
 
+  if (session && !showAccountLogin && !recordsReady) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+        <View style={s.startupScreen}>
+          <View style={s.startupGlow} />
+          <View style={s.startupLogo}>
+            <Text style={s.startupLogoText}>P</Text>
+          </View>
+          <Text style={s.startupBrand}>POKE<Text style={{ color: C.red }}>CHIACCHERE</Text></Text>
+          <Text style={s.startupCaption}>GESTIONALE CONDIVISO</Text>
+          <View style={s.startupProgressTrack}>
+            <View style={s.startupProgressFill} />
+          </View>
+          <ActivityIndicator color={C.cyan} size="small" style={{ marginTop: 18 }} />
+          <Text style={s.startupHint}>Preparazione dei tuoi dati…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!session || showAccountLogin) {
     return (
       <SafeAreaView style={s.safe}>
@@ -5714,6 +5758,28 @@ export default function App() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  startupScreen: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.bg, paddingHorizontal: 28,
+  },
+  startupGlow: {
+    position: 'absolute', width: 210, height: 210, borderRadius: 105,
+    backgroundColor: '#10294A', opacity: 0.5,
+  },
+  startupLogo: {
+    width: 66, height: 66, borderRadius: 22, backgroundColor: C.panel,
+    borderWidth: 1, borderColor: '#2869A8', alignItems: 'center',
+    justifyContent: 'center', marginBottom: 22,
+  },
+  startupLogoText: { color: C.cyan, fontSize: 39, fontWeight: '900' },
+  startupBrand: { color: C.white, fontSize: 19, fontWeight: '900', letterSpacing: 1.1 },
+  startupCaption: { color: C.muted, fontSize: 9, fontWeight: '800', letterSpacing: 3, marginTop: 9 },
+  startupProgressTrack: {
+    width: 118, height: 3, borderRadius: 3, overflow: 'hidden',
+    backgroundColor: C.panel2, marginTop: 28,
+  },
+  startupProgressFill: { width: '68%', height: 3, borderRadius: 3, backgroundColor: C.cyan },
+  startupHint: { color: C.muted, fontSize: 12, marginTop: 10 },
   backgroundProviderWrap: { marginTop: 12, marginBottom: 8, gap: 7 },
   backgroundProviderLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12 },
   backgroundProviderLabelSide: { paddingVertical: 3 },
