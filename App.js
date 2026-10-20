@@ -4791,9 +4791,12 @@ export default function App() {
       const meters = getPartnerDistanceMeters(prev, point);
       const speed = getPartnerPointSpeedKmh(prev, point);
       const accuracy = Math.max(Number(prev.accuracy) || 0, Number(point.accuracy) || 0);
-      const moving = seconds > 0 && seconds <= 600 && meters > Math.max(35, accuracy * 1.5) && speed != null && speed >= 2.5;
+      // Tolleranza maggiore per GPS in background: iOS può consegnare punti
+      // distanziati nel tempo o con precisione variabile, senza che il movimento sia perso.
+      const moving = seconds > 0 && seconds <= 1800 &&
+        meters > Math.max(18, accuracy * 0.85) && speed != null && speed >= 1;
       if (moving) {
-        if (!current || seconds > 240 || getPartnerDistanceMeters(current.points[current.points.length - 1], prev) > 450) {
+        if (!current || seconds > 600 || getPartnerDistanceMeters(current.points[current.points.length - 1], prev) > 650) {
           current = { key: String(prev._historyKey || prev.recorded_at), points: [prev], meters: 0, speeds: [], maxSpeed: 0 };
           trips.push(current);
         }
@@ -4805,7 +4808,7 @@ export default function App() {
         current = null;
       }
     });
-    return trips.filter((trip) => trip.meters >= 120 && trip.points.length >= 2).map((trip) => {
+    return trips.filter((trip) => trip.meters >= 50 && trip.points.length >= 2).map((trip) => {
       const start = trip.points[0];
       const end = trip.points[trip.points.length - 1];
       const durationMinutes = Math.max(1, Math.round((new Date(end.recorded_at) - new Date(start.recorded_at)) / 60000));
@@ -4831,9 +4834,9 @@ export default function App() {
       }
       groups.get(key).points.push({ ...point, _historyKey: String(point.id || point.recorded_at) + '-' + index });
     });
-    // Mostra soltanto le giornate in cui è stato identificato almeno uno spostamento.
-    // Le giornate con soli punti GPS statici/non sufficienti non devono comparire.
-    return Array.from(groups.values()).filter((group) => getPartnerTripsForDay(group.points).length > 0);
+    // Non nascondere una giornata solo perché il filtro non riesce a classificare
+    // il percorso: i punti GPS restano consultabili anche con campionamento irregolare.
+    return Array.from(groups.values()).filter((group) => group.points.length >= 2);
   }
 
   function getPartnerStayLabel() {
@@ -5599,7 +5602,7 @@ export default function App() {
                       </View>
                       <Text style={{ color: '#8B8798', fontSize: 11, marginTop: 9 }}>Durata {trip.durationMinutes} min · stima dai dati GPS</Text>
                     </View>)}
-                    {trips.length === 0 && <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18 }}><Text style={{ color: '#777789', fontSize: 13 }}>Non ci sono abbastanza punti GPS per identificare uno spostamento in questa giornata.</Text></View>}
+                    {trips.length === 0 && <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18 }}><Text style={{ color: '#777789', fontSize: 13 }}>Sono state registrate {group.points.length} posizioni GPS, ma non ci sono ancora punti sufficienti per classificare con certezza il tragitto. Le posizioni non sono state eliminate.</Text></View>}
                   </View>;
                 })}
               </ScrollView>
