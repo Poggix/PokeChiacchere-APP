@@ -4788,10 +4788,10 @@ export default function App() {
   function getPartnerPointSpeedKmh(a, b) {
     if (!a || !b) return null;
     const seconds = (new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()) / 1000;
-    if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 900) return null;
+    if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 1800) return null;
     const accuracy = Math.max(Number(a.accuracy) || 0, Number(b.accuracy) || 0);
     const meters = getPartnerDistanceMeters(a, b);
-    if (meters <= Math.max(12, accuracy * 0.7)) return 0;
+    if (meters <= Math.max(10, accuracy * 0.6)) return 0;
     return meters / seconds * 3.6;
   }
 
@@ -4808,8 +4808,10 @@ export default function App() {
       const accuracy = Math.max(Number(prev.accuracy) || 0, Number(point.accuracy) || 0);
       // Tolleranza maggiore per GPS in background: iOS può consegnare punti
       // distanziati nel tempo o con precisione variabile, senza che il movimento sia perso.
+      // I dati storici possono essere radi: accetta intervalli fino a 30 minuti
+      // e spostamenti coerenti con l'accuratezza GPS, senza richiedere campionamento fitto.
       const moving = seconds > 0 && seconds <= 1800 &&
-        meters > Math.max(18, accuracy * 0.85) && speed != null && speed >= 1;
+        meters > Math.max(12, accuracy * 0.6) && speed != null && speed >= 0.5;
       if (moving) {
         if (!current || seconds > 600 || getPartnerDistanceMeters(current.points[current.points.length - 1], prev) > 650) {
           current = { key: String(prev._historyKey || prev.recorded_at), points: [prev], meters: 0, speeds: [], maxSpeed: 0 };
