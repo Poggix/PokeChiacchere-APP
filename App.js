@@ -4736,19 +4736,34 @@ export default function App() {
     if (!token) return;
     setPartnerHistoryBusy(true);
     try {
-      const response = await fetch(
-        URL + '/rest/v1/partner_location_history?select=id,user_id,latitude,longitude,accuracy,recorded_at,battery_level&user_id=neq.' +
-        encodeURIComponent(OWNER_USER_ID) + '&order=recorded_at.desc&limit=500',
-        { headers: { apikey: KEY, Authorization: 'Bearer ' + token } }
-      );
-      if (!response.ok) throw new Error('Impossibile leggere la cronologia (HTTP ' + response.status + ').');
-      const rows = await response.json();
-      setPartnerHistory((Array.isArray(rows) ? rows : []).map((row) => ({
+      // Recupera tutta la cronologia a pagine: il limite predefinito di 500
+      // nascondeva i percorsi più vecchi quando la tabella cresceva.
+      const pageSize = 1000;
+      let offset = 0;
+      let allRows = [];
+      let keepReading = true;
+      while (keepReading) {
+        const response = await fetch(
+          URL + '/rest/v1/partner_location_history?select=id,user_id,latitude,longitude,accuracy,recorded_at,battery_level&user_id=neq.' +
+          encodeURIComponent(OWNER_USER_ID) + '&order=recorded_at.desc,id.desc&limit=' + pageSize + '&offset=' + offset,
+          { headers: { apikey: KEY, Authorization: 'Bearer ' + token } }
+        );
+        if (!response.ok) throw new Error('Impossibile leggere la cronologia (HTTP ' + response.status + ').');
+        const page = await response.json();
+        const rows = Array.isArray(page) ? page : [];
+        allRows = allRows.concat(rows);
+        keepReading = rows.length === pageSize;
+        offset += rows.length;
+        if (offset > 50000) break;
+      }
+      const uniqueRows = Array.from(new Map(allRows.map((row) => [String(row.id), row])).values());
+      setPartnerHistory(uniqueRows.map((row) => ({
         ...row,
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),
         recorded_at: row.recorded_at,
-      })).filter((row) => Number.isFinite(row.latitude) && Number.isFinite(row.longitude)).reverse());
+      })).filter((row) => Number.isFinite(row.latitude) && Number.isFinite(row.longitude))
+        .sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()));
     } catch (e) {
       if (showErrors) Alert.alert('Cronologia non disponibile', e?.message || 'Controlla la configurazione Supabase.');
     } finally {
