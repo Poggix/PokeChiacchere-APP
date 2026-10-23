@@ -1,5 +1,5 @@
-const CACHE_NAME = 'pokechiacchere-portal-v3';
-const APP_SHELL = ['./', './index.html', './app.js?v=3', './manifest.webmanifest'];
+const CACHE_NAME = 'pokechiacchere-portal-v4';
+const APP_SHELL = ['./', './index.html', './app.js?v=4', './manifest.webmanifest'];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });
