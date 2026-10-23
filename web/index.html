@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <meta name="description" content="Portale web PokeChiacchere, collegato ai dati Supabase condivisi con l'app iOS.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <title>PokeChiacchere · Portale</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080d18;--panel:#111b2d;--panel2:#192943;--blue:#168bff;--cyan:#55b5ff;--white:#f5f8ff;--muted:#9baac2;--border:#2b3d59;--red:#ff6177}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,input{font:inherit}button{cursor:pointer}.shell{max-width:1240px;margin:auto;padding:24px}
+    .brand{font-size:13px;letter-spacing:2px;color:var(--cyan);font-weight:800}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+    h1{font-size:clamp(25px,4vw,36px);margin:6px 0}.sub,.muted{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:20px}
+    .login{max-width:440px;margin:10vh auto}.field{display:grid;gap:7px;margin:16px 0}.field label{font-size:13px;color:var(--muted)}
+    input{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--white);padding:12px}
+    .btn{border:0;border-radius:10px;padding:11px 16px;background:var(--blue);color:white;font-weight:750}.btn.secondary{background:var(--panel2);border:1px solid var(--border)}
+    .actions{display:flex;gap:9px;align-items:center}.hidden{display:none!important}.error{color:#ff9bab;min-height:24px}.status{color:var(--muted);font-size:13px}
+    .layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px}.nav{display:grid;align-content:start;gap:7px}
+    .nav button{text-align:left;color:var(--muted);background:transparent;border:1px solid transparent;padding:11px 13px;border-radius:10px}
+    .nav button.active,.nav button:hover{color:var(--white);background:var(--panel2);border-color:var(--border)}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+    .metric{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:16px;min-width:0}
+    .metric span{display:block;color:var(--muted);font-size:12px}.metric strong{display:block;font-size:24px;margin-top:7px;overflow-wrap:anywhere}
+    .contentHead{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px}.contentHead h2{margin:0;font-size:21px}
+    .search{max-width:300px}.tableWrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
+    table{width:100%;border-collapse:collapse;min-width:600px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+    th{color:var(--muted);font-size:12px;font-weight:700;background:#0e1727;position:sticky;top:0}td{font-size:13px;max-width:320px;overflow-wrap:anywhere}
+    tr:last-child td{border:0}.empty{text-align:center;padding:32px;color:var(--muted)}.note{font-size:12px;color:var(--muted);margin-top:14px}
+    @media(max-width:760px){.shell{padding:16px}.layout{grid-template-columns:1fr}.nav{display:flex;overflow:auto;padding-bottom:4px}.nav button{white-space:nowrap}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.top{align-items:flex-start}.top .actions{flex-direction:column;align-items:flex-end}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section id="login" class="panel login">
+      <div class="brand">POKECHIACCHERE</div><h1>Portale web</h1>
+      <p class="sub">Accedi con lo stesso account usato nell’app iOS. I dati restano su Supabase e si aggiornano tra i dispositivi.</p>
+      <form id="loginForm">
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn" type="submit">Accedi</button><p id="loginError" class="error" role="alert"></p>
+      </form>
+      <p class="note">L’accesso usa Supabase Auth. Le autorizzazioni sui dati sono quelle già definite nel progetto.</p>
+    </section>
+    <section id="app" class="hidden">
+      <header class="top"><div><div class="brand">POKECHIACCHERE</div><h1>Portale web</h1><div id="identity" class="status"></div></div>
+        <div class="actions"><button id="refresh" class="btn secondary">Aggiorna</button><button id="logout" class="btn secondary">Esci</button></div>
+      </header>
+      <div id="metrics" class="metrics"></div>
+      <div class="layout"><nav id="nav" class="nav" aria-label="Sezioni dati"></nav>
+        <section class="panel">
+          <div class="contentHead"><h2 id="sectionTitle">Vendite</h2><input id="search" class="search" type="search" placeholder="Cerca nei dati" aria-label="Cerca nei dati"></div>
+          <div id="status" class="status" role="status"></div><div id="table" class="tableWrap"></div>
+          <p class="note">Vista consultiva: le modifiche e le funzioni specifiche dell’iPhone restano nell’app iOS.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const SUPABASE_URL = 'https://omovacbvfhmtjqrrgszx.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const sections = [
+      ['sales','Vendite'],['purchases','Acquisti'],['products','Prodotti'],
+      ['customers','Clienti'],['internal_payments','Pagamenti interni'],['withdrawals','Prelievi']
+    ];
+    const $ = (id) => document.getElementById(id);
+    let rowsByTable = {}, activeTable = 'sales';
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const readable = (key) => key.replaceAll('_',' ').replace(/\b\w/g, c => c.toLocaleUpperCase('it'));
+    const money = (v) => new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(Number(String(v ?? 0).replace(',','.'))||0);
+    function setAuthenticated(user){
+      $('login').classList.toggle('hidden',!!user); $('app').classList.toggle('hidden',!user);
+      $('identity').textContent = user ? (user.email || 'Account connesso') : '';
+    }
+    function renderNav(){
+      $('nav').innerHTML = sections.map(([table,label]) => '<button type="button" data-table="'+table+'" class="'+(activeTable===table?'active':'')+'">'+label+'</button>').join('');
+      $('nav').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{activeTable=b.dataset.table;renderNav();renderTable()}));
+    }
+    function renderMetrics(){
+      const sales=rowsByTable.sales||[], purchases=rowsByTable.purchases||[];
+      const sum=(items,key)=>items.reduce((n,r)=>n+(Number(String(r[key]||0).replace(',','.'))||0),0);
+      const saleTotal=sum(sales,'total') || sales.reduce((n,r)=>n+(Number(r.quantity)||0)*(Number(r.unit_price)||0),0);
+      const purchaseTotal=sum(purchases,'total') || purchases.reduce((n,r)=>n+(Number(r.quantity)||0)*(Number(r.unit_price)||0),0);
+      const cards=[['Vendite',sales.length],['Incasso registrato',money(saleTotal)],['Acquisti',purchases.length],['Spesa acquisti',money(purchaseTotal)]];
+      $('metrics').innerHTML=cards.map(([label,value])=>'<div class="metric"><span>'+label+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
+    }
+    function renderTable(){
+      const rows=rowsByTable[activeTable]||[], q=$('search').value.trim().toLocaleLowerCase('it');
+      $('sectionTitle').textContent=sections.find(([t])=>t===activeTable)?.[1]||activeTable;
+      const visible=rows.filter(row=>!q||Object.values(row).some(v=>String(v??'').toLocaleLowerCase('it').includes(q)));
+      if(!visible.length){$('table').innerHTML='<div class="empty">'+(rows.length?'Nessun risultato per questa ricerca.':'Nessun dato visibile per questo account.')+'</div>';return}
+      const keys=[...new Set(visible.flatMap(Object.keys))].filter(k=>!['id'].includes(k)).slice(0,10);
+      $('table').innerHTML='<table><thead><tr>'+keys.map(k=>'<th>'+escapeHtml(readable(k))+'</th>').join('')+'</tr></thead><tbody>'+visible.slice(0,500).map(row=>'<tr>'+keys.map(k=>'<td>'+escapeHtml(row[k])+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+    }
+    async function loadData(){
+      $('status').textContent='Caricamento dati…'; $('refresh').disabled=true;
+      const result=await Promise.all(sections.map(async([table])=>{
+        let response=await supabase.from(table).select('*').order('created_at',{ascending:false});
+        if(response.error && /created_at|column/i.test(response.error.message||'')) response=await supabase.from(table).select('*');
+        return [table,response];
+      }));
+      const failures=result.filter(([,r])=>r.error);
+      rowsByTable=Object.fromEntries(result.map(([table,r])=>[table,r.data||[]]));
+      renderMetrics();renderNav();renderTable();
+      $('status').textContent=failures.length?'Alcune sezioni non sono accessibili per questo account: '+failures.map(([t])=>sections.find(([x])=>x===t)?.[1]).join(', '):'Dati aggiornati da Supabase';
+      $('refresh').disabled=false;
+    }
+    $('loginForm').addEventListener('submit',async e=>{
+      e.preventDefault();$('loginError').textContent='Accesso in corso…';
+      const {data,error}=await supabase.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+      if(error){$('loginError').textContent=error.message;return}
+      setAuthenticated(data.user);await loadData();$('loginError').textContent='';
+    });
+    $('logout').addEventListener('click',async()=>{await supabase.auth.signOut();rowsByTable={};setAuthenticated(null)});
+    $('refresh').addEventListener('click',loadData);$('search').addEventListener('input',renderTable);
+    supabase.auth.onAuthStateChange((_event,session)=>{setAuthenticated(session?.user||null)});
+    const {data:{session}}=await supabase.auth.getSession();
+    if(session){setAuthenticated(session.user);await loadData()}
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  </script>
+</body>
+</html>
