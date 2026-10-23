@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#080d18">
   <meta name="description" content="Portale web PokeChiacchere, collegato ai dati Supabase condivisi con l'app iOS.">
   <link rel="manifest" href="./manifest.webmanifest">
-  <title>PokeChiacchere · Portale</title>
+  <title>PokeChiacchere · Gestionale</title>
   <style>
     :root{color-scheme:dark;--bg:#080d18;--panel:#111b2d;--panel2:#192943;--blue:#168bff;--cyan:#55b5ff;--white:#f5f8ff;--muted:#9baac2;--border:#2b3d59;--red:#ff6177}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -34,9 +34,13 @@
   </style>
 </head>
 <body>
+  <style>
+    @media(min-width:761px){.shell{max-width:1500px}.layout{grid-template-columns:240px minmax(0,1fr)}.nav{position:sticky;top:18px;align-self:start;max-height:calc(100vh - 36px);overflow:auto}.panel{min-height:65vh}.metrics .metric{box-shadow:0 8px 24px #03081255}.nav button{font-weight:650}}
+    .panel h2{font-size:18px;margin:18px 0 10px}.orderLine select,.orderLine input{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--white);padding:12px}.orderLine select{min-height:46px}@media(max-width:760px){.orderLine{grid-template-columns:1fr 1fr!important}.orderLine .field:first-child{grid-column:1/-1}.orderLine .removeLine{grid-column:1/-1}}.panel .panel{margin-top:14px}.metric small{display:block;color:var(--muted);margin-top:7px}
+  </style>
   <main class="shell">
     <section id="login" class="panel login">
-      <div class="brand">POKECHIACCHERE</div><h1>Portale web</h1>
+      <div class="brand">POKECHIACCHERE</div><h1>Gestionale web</h1>
       <p class="sub">Accedi con lo stesso account usato nell’app iOS. I dati restano su Supabase e si aggiornano tra i dispositivi.</p>
       <form id="loginForm">
         <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required></div>
@@ -60,81 +64,6 @@
     </section>
   </main>
   <div id="modalRoot"></div>
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-    const SUPABASE_URL = 'https://omovacbvfhmtjqrrgszx.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_riYV0ro2BZo3umMa71mPGQ_mUPm4MA9';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const sections = [
-      ['sales','Vendite'],['purchases','Acquisti'],['products','Prodotti'],
-      ['customers','Clienti'],['internal_payments','Pagamenti interni'],['withdrawals','Prelievi']
-    ];
-    const $ = (id) => document.getElementById(id);
-    let rowsByTable = {}, activeTable = 'sales';
-    const fieldPresets={sales:['sale_date','order_number','customer_name','customer_first_name','customer_last_name','product','quantity','sale_unit_price','tiktok_fees','other_costs','purchase_unit_cost','flat_tax'],purchases:['purchase_date','buyer','product','quantity','unit_price'],products:['name','sku','category','price','cost','quantity','photo_url','notes'],customers:['first_name','last_name','name','phone','email','tiktok_username','notes'],internal_payments:['payment_date','from_partner','to_partner','amount','description','notes'],withdrawals:['withdrawal_date','partner','amount','reason','notes']};
-    const labels={sale_date:'Data vendita',purchase_date:'Data acquisto',withdrawal_date:'Data prelievo',payment_date:'Data pagamento',order_number:'Numero ordine',customer_name:'Cliente',sale_unit_price:'Prezzo vendita unitario',unit_price:'Prezzo unitario',tiktok_fees:'Commissioni TikTok',other_costs:'Altri costi',purchase_unit_cost:'Costo acquisto unitario',flat_tax:'Imposta',created_at:'Creato il',tiktok_username:'Username TikTok',photo_url:'URL immagine'};
-    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const readable = (key) => key.replaceAll('_',' ').replace(/\b\w/g, c => c.toLocaleUpperCase('it'));
-    const money = (v) => new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(Number(String(v ?? 0).replace(',','.'))||0);
-    function setAuthenticated(user){
-      $('login').classList.toggle('hidden',!!user); $('app').classList.toggle('hidden',!user);
-      $('identity').textContent = user ? (user.email || 'Account connesso') : '';
-    }
-    function renderNav(){
-      $('nav').innerHTML = sections.map(([table,label]) => '<button type="button" data-table="'+table+'" class="'+(activeTable===table?'active':'')+'">'+label+'</button>').join('');
-      $('nav').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{activeTable=b.dataset.table;renderNav();renderTable()}));
-    }
-    function renderMetrics(){
-      const sales=rowsByTable.sales||[], purchases=rowsByTable.purchases||[];
-      const sum=(items,key)=>items.reduce((n,r)=>n+(Number(String(r[key]||0).replace(',','.'))||0),0);
-      const saleTotal=sum(sales,'total') || sales.reduce((n,r)=>n+(Number(r.quantity)||0)*(Number(r.unit_price)||0),0);
-      const purchaseTotal=sum(purchases,'total') || purchases.reduce((n,r)=>n+(Number(r.quantity)||0)*(Number(r.unit_price)||0),0);
-      const cards=[['Vendite',sales.length],['Incasso registrato',money(saleTotal)],['Acquisti',purchases.length],['Spesa acquisti',money(purchaseTotal)]];
-      $('metrics').innerHTML=cards.map(([label,value])=>'<div class="metric"><span>'+label+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
-    }
-    function renderTable(){
-      const rows=rowsByTable[activeTable]||[], q=$('search').value.trim().toLocaleLowerCase('it');
-      $('sectionTitle').textContent=sections.find(([t])=>t===activeTable)?.[1]||activeTable;
-      const visible=rows.filter(row=>!q||Object.values(row).some(v=>String(v??'').toLocaleLowerCase('it').includes(q)));
-      if(!visible.length){$('table').innerHTML='<div class="empty">'+(rows.length?'Nessun risultato per questa ricerca.':'Nessun dato visibile per questo account.')+'</div>';return}
-      const keys=[...new Set(visible.flatMap(Object.keys))].filter(k=>!['id','created_by'].includes(k)).slice(0,12);
-      $('table').innerHTML='<table><thead><tr>'+keys.map(k=>'<th>'+escapeHtml(labels[k]||readable(k))+'</th>').join('')+'<th>Azioni</th></tr></thead><tbody>'+visible.slice(0,500).map(row=>'<tr>'+keys.map(k=>'<td>'+escapeHtml(row[k])+'</td>').join('')+'<td><div class="rowActions"><button class="btn secondary" data-edit="'+escapeHtml(row.id)+'">Modifica</button><button class="btn danger" data-delete="'+escapeHtml(row.id)+'">Elimina</button></div></td></tr>').join('')+'</tbody></table>';
-      $('table').querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEditor(rows.find(r=>String(r.id)===b.dataset.edit))));
-      $('table').querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click',()=>deleteRow(rows.find(r=>String(r.id)===b.dataset.delete))));
-    }
-    function fieldType(key,value){if(/date|_at$/.test(key))return 'date';if(typeof value==='number'||/quantity|price|amount|cost|fees|tax|total|profit|unit_price/i.test(key))return 'number';if(/notes|description|address/i.test(key))return 'textarea';return 'text'}
-    function openEditor(row){
-      const sample=rowsByTable[activeTable]?.[0]||{};const fields=(row?Object.keys(row):[...(fieldPresets[activeTable]||[])]).filter(k=>!['id','created_at','updated_at','created_by','order_items','tiktok_user_id','tiktok_sec_uid','tiktok_last_checked_at'].includes(k));
-      $('modalRoot').innerHTML='<div class="modalBackdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="contentHead"><h2>'+(row?'Modifica':'Nuova registrazione')+' · '+escapeHtml(sections.find(([t])=>t===activeTable)?.[1]||activeTable)+'</h2><button id="closeModal" type="button" class="btn secondary">Chiudi</button></div><form id="recordForm"><div class="formGrid">'+fields.map(key=>{const val=row?.[key]??'';const type=fieldType(key,val);const input=type==='textarea'?'<textarea id="f_'+key+'">'+escapeHtml(val)+'</textarea>':'<input id="f_'+key+'" type="'+(type==='date'?'date':type==='number'?'number':'text')+'" '+(type==='number'?'step="any"':'')+' value="'+escapeHtml(type==='date'&&val?String(val).slice(0,10):val)+'">';return '<div class="field"><label for="f_'+key+'">'+escapeHtml(labels[key]||readable(key))+'</label>'+input+'</div>'}).join('')+'</div><p id="formError" class="error" role="alert"></p><div class="modalActions"><button type="button" id="cancelModal" class="btn secondary">Annulla</button><button type="submit" class="btn">Salva</button></div></form></section></div>';
-      const close=()=>{$('modalRoot').innerHTML=''};$('closeModal').onclick=close;$('cancelModal').onclick=close;$('modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')close()});
-      $('recordForm').onsubmit=async e=>{e.preventDefault();const payload={};for(const key of fields){const el=$('f_'+key);if(!el)continue;let v=el.value;if(v==='')v=null;else if(fieldType(key,row?.[key])==='number')v=Number(v);payload[key]=v}$('formError').textContent='Salvataggio…';try{let result;if(row)result=await supabase.from(activeTable).update(payload).eq('id',row.id);else{const user=(await supabase.auth.getUser()).data.user;result=await supabase.from(activeTable).insert(['sales','purchases','internal_payments','withdrawals'].includes(activeTable)?{...payload,created_by:user?.id}:payload)}if(result.error)throw result.error;close();await loadData()}catch(err){$('formError').textContent=err.message||'Errore durante il salvataggio'}};
-    }
-    async function deleteRow(row){if(!row||!confirm('Eliminare definitivamente questa registrazione?'))return;const {error}=await supabase.from(activeTable).delete().eq('id',row.id);if(error){alert('Eliminazione non riuscita: '+error.message);return}await loadData()}
-    async function loadData(){
-      $('status').textContent='Caricamento dati…'; $('refresh').disabled=true;
-      const result=await Promise.all(sections.map(async([table])=>{
-        let response=await supabase.from(table).select('*').order('created_at',{ascending:false});
-        if(response.error && /created_at|column/i.test(response.error.message||'')) response=await supabase.from(table).select('*');
-        return [table,response];
-      }));
-      const failures=result.filter(([,r])=>r.error);
-      rowsByTable=Object.fromEntries(result.map(([table,r])=>[table,r.data||[]]));
-      renderMetrics();renderNav();renderTable();
-      $('status').textContent=failures.length?'Alcune sezioni non sono accessibili per questo account: '+failures.map(([t])=>sections.find(([x])=>x===t)?.[1]).join(', '):'Dati aggiornati da Supabase';
-      $('refresh').disabled=false;
-    }
-    $('loginForm').addEventListener('submit',async e=>{
-      e.preventDefault();$('loginError').textContent='Accesso in corso…';
-      const {data,error}=await supabase.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
-      if(error){$('loginError').textContent=error.message;return}
-      setAuthenticated(data.user);await loadData();$('loginError').textContent='';
-    });
-    $('logout').addEventListener('click',async()=>{await supabase.auth.signOut();rowsByTable={};setAuthenticated(null)});
-    $('refresh').addEventListener('click',loadData);$('search').addEventListener('input',renderTable);$('addRow').addEventListener('click',()=>openEditor(null));
-    supabase.auth.onAuthStateChange((_event,session)=>{setAuthenticated(session?.user||null)});
-    const {data:{session}}=await supabase.auth.getSession();
-    if(session){setAuthenticated(session.user);await loadData()}
-    if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  </script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
