@@ -2,6 +2,12 @@ name: Build PokeChiacchere IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      send_telegram:
+        description: Invia l'IPA alla chat Telegram configurata
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -164,6 +170,7 @@ jobs:
           if-no-files-found: error
 
       - name: Invia IPA su Telegram
+        if: ${{ inputs.send_telegram }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
