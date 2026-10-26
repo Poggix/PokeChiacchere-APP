@@ -16,6 +16,7 @@ import * as Sharing from 'expo-sharing';
 import * as Network from 'expo-network';
 import * as DocumentPicker from 'expo-document-picker';
 import * as XLSX from 'xlsx';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -5318,8 +5319,15 @@ export default function App() {
       <TouchableOpacity
         key={target}
         style={s.navItem}
+        activeOpacity={0.72}
         onPress={() => setPage(target)}>
-        <Text style={[s.navIcon, active && { color: accentColor }]}>{icon}</Text>
+        <View style={s.navIconWrap}>
+          <Ionicons
+            name={icon}
+            size={21}
+            color={active ? accentColor : C.muted}
+          />
+        </View>
         <Text style={[s.navLabel, active && { color: accentColor }]}>{title}</Text>
       </TouchableOpacity>
     );
@@ -5464,12 +5472,12 @@ export default function App() {
       </ScrollView>
 
       <View style={s.nav}>
-        {navItem('Home', '⌂', 'home')}
-        {navItem('Vendite', '↗', 'sales')}
-        {navItem('Acquisti', '▤', 'purchases')}
-        {navItem('Soci', '⇄', 'payments')}
-        {navItem('Archivio', '▦', 'products')}
-        {navItem('Magazzino', '●', 'inventory', C.green)}
+        {navItem('Home', 'home-outline', 'home')}
+        {navItem('Vendite', 'trending-up-outline', 'sales')}
+        {navItem('Acquisti', 'cart-outline', 'purchases')}
+        {navItem('Soci', 'swap-horizontal-outline', 'payments')}
+        {navItem('Archivio', 'archive-outline', 'products')}
+        {navItem('Magazzino', 'cube-outline', 'inventory', C.green)}
       </View>
 
       {pickerModal()}
@@ -6179,16 +6187,37 @@ const s = StyleSheet.create({
   empty: { color: C.muted, textAlign: 'center', padding: 20 },
   nav: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
     backgroundColor: C.panel,
     borderTopWidth: 1,
     borderTopColor: C.border,
-    paddingTop: 10,
+    paddingHorizontal: 4,
+    paddingTop: 8,
     paddingBottom: 8,
   },
-  navItem: { alignItems: 'center', flex: 1, paddingVertical: 3 },
-  navIcon: { fontSize: 22, color: C.muted, fontWeight: '800' },
-  navLabel: { fontSize: 10, color: C.muted, marginTop: 5, fontWeight: '800' },
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 2,
+  },
+  navIconWrap: {
+    width: 28,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navLabel: {
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 10,
+    lineHeight: 13,
+    color: C.muted,
+    marginTop: 4,
+    fontWeight: '800',
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: '#000C',
