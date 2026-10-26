@@ -15,7 +15,8 @@
           "isIosBackgroundLocationEnabled": true
         }
       ],
-      "./plugins/withPokeLocationAppDelegate"
+      "./plugins/withPokeLocationAppDelegate",
+      "./plugins/withIOSSceneLifecycle"
     ],
     "ios": {
       "bundleIdentifier": "com.anonymous.pokechiacchere",
