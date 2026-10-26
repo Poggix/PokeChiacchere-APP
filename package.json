@@ -8,29 +8,35 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo/config-plugins": "~54.0.6",
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.57.4",
     "expo": "~54.0.37",
+    "expo-background-task": "~1.0.8",
+    "expo-constants": "~18.0.14",
+    "expo-device": "~8.0.10",
+    "expo-document-picker": "~14.0.8",
+    "expo-file-system": "~19.0.21",
+    "expo-image": "~3.0.11",
+    "expo-image-picker": "~17.0.10",
+    "expo-location": "~19.0.8",
+    "expo-network": "~8.0.7",
+    "expo-notifications": "~0.32.17",
+    "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-task-manager": "~14.0.8",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "expo-device": "~8.0.10",
-    "expo-constants": "~18.0.14",
-    "@expo/vector-icons": "^15.0.3",
-    "expo-notifications": "~0.32.17",
-    "react-native-paper": "4.9.2",
-    "@react-native-async-storage/async-storage": "2.2.0",
-    "expo-image-picker": "~17.0.10",
-    "expo-file-system": "~19.0.21",
-    "expo-sharing": "~14.0.8",
-    "@supabase/supabase-js": "^2.57.4",
-    "expo-background-task": "~1.0.8",
-    "expo-task-manager": "~14.0.8",
-    "expo-location": "~19.0.8",
     "react-native-maps": "1.20.1",
-    "expo-document-picker": "~14.0.8",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "expo-image": "~3.0.11",
-    "expo-network": "~8.0.7"
+    "react-native-paper": "4.9.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "private": true,
-  "version": "3.5.4"
+  "version": "3.5.4",
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
+  },
+  "name": "PokeChiacchere-APP"
 }
