@@ -8,11 +8,20 @@
       "bundleIdentifier": "com.anonymous.pokechiacchere",
       "developerName": "Poggix",
       "subtitle": "Gestionale PokeChiacchere",
-      "localizedDescription": "Versione attualmente pubblicata: 3.5.4 build 82. Le correzioni GPS salvate dopo questa build non sono ancora incluse in una nuova IPA.",
+      "localizedDescription": "Versione attualmente pubblicata: 3.5.4 build 83.",
       "iconURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/assets/icon.png",
       "tintColor": "#27AE60",
       "category": "utilities",
       "versions": [
+        {
+          "version": "3.5.4",
+          "buildVersion": "83",
+          "date": "2026-10-26T01:36:43Z",
+          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.4-build83/PokeChiacchere-v3.5.4-build83.ipa",
+          "size": 14742523,
+          "minOSVersion": "15.0",
+          "localizedDescription": "Versione 3.5.4 build 83."
+        },
         {
           "version": "3.5.4",
           "buildVersion": "82",
