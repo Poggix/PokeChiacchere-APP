@@ -14,6 +14,13 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "3.5.5",
+          "date": "2026-10-26",
+          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.5-build84/PokeChiacchere-v3.5.5-build84.ipa",
+          "size": 14742523,
+          "localizedDescription": "Versione 3.5.5"
+        },
+        {
           "version": "3.5.4",
           "buildVersion": "83",
           "date": "2026-10-26T01:36:43Z",
