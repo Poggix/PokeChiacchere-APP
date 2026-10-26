@@ -1,151 +1,28 @@
 {
   "name": "PokeChiacchere",
-  "identifier": "it.poggix.pokechiacchere.source",
-  "sourceURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/sidestore-source.json",
+  "identifier": "it.stickerhome.pokechiacchere.source",
+  "sourceURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/sideStore-source.json",
   "apps": [
     {
       "name": "PokeChiacchere",
       "bundleIdentifier": "com.anonymous.pokechiacchere",
       "developerName": "Poggix",
-      "subtitle": "Gestisci PokeChiacchere dal tuo iPhone",
-      "localizedDescription": "App PokeChiacchere. Gli aggiornamenti disponibili verranno mostrati in SideStore.",
-      "iconURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/assets/Icon.png",
-      "tintColor": "#7B2CBF",
+      "subtitle": "Gestionale PokeChiacchere",
+      "localizedDescription": "Versione attualmente pubblicata: 3.5.4 build 82. Le correzioni GPS salvate dopo questa build non sono ancora incluse in una nuova IPA.",
+      "iconURL": "https://raw.githubusercontent.com/Poggix/PokeChiacchere-APP/main/assets/icon.png",
+      "tintColor": "#27AE60",
+      "category": "utilities",
       "versions": [
         {
           "version": "3.5.4",
-          "date": "2026-10-20",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.4-build82/PokeChiacchere-v3.5.4-build82.ipa",
-          "size": 12446562,
+          "date": "2026-10-26",
+          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.4-build83/PokeChiacchere-v3.5.4-build83.ipa",
+          "size": 14742523,
           "localizedDescription": "Versione 3.5.4"
-        },
-        {
-          "version": "3.5.3",
-          "date": "2026-10-20",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.3-build81/PokeChiacchere-v3.5.3-build81.ipa",
-          "size": 12446731,
-          "localizedDescription": "Versione 3.5.3"
-        },
-        {
-          "version": "3.5.2",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.2-build80/PokeChiacchere-v3.5.2-build80.ipa",
-          "size": 12445825,
-          "localizedDescription": "Versione 3.5.2"
-        },
-        {
-          "version": "3.5.1",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5.1-build79/PokeChiacchere-v3.5.1-build79.ipa",
-          "size": 12445270,
-          "localizedDescription": "Versione 3.5.1"
-        },
-        {
-          "version": "3.5",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.5-build78/PokeChiacchere-v3.5-build78.ipa",
-          "size": 12444605,
-          "localizedDescription": "Versione 3.5"
-        },
-        {
-          "version": "3.4.5",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.5-build75/PokeChiacchere-v3.4.5-build75.ipa",
-          "size": 12442298,
-          "localizedDescription": "Versione 3.4.5"
-        },
-        {
-          "version": "3.4.43",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.43-build72/PokeChiacchere-v3.4.43-build72.ipa",
-          "size": 12442524,
-          "localizedDescription": "Versione 3.4.43"
-        },
-        {
-          "version": "3.4.41",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.41-build70/PokeChiacchere-v3.4.41-build70.ipa",
-          "size": 12442417,
-          "localizedDescription": "Versione 3.4.41"
-        },
-        {
-          "version": "3.4.39",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.39-build68/PokeChiacchere-v3.4.39-build68.ipa",
-          "size": 12440780,
-          "localizedDescription": "Versione 3.4.39"
-        },
-        {
-          "version": "3.4.38",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.38-build67/PokeChiacchere-v3.4.38-build67.ipa",
-          "size": 12440069,
-          "localizedDescription": "Versione 3.4.38"
-        },
-        {
-          "version": "3.4.36",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.36-build65/PokeChiacchere-v3.4.36-build65.ipa",
-          "size": 12439003,
-          "localizedDescription": "Versione 3.4.36"
-        },
-        {
-          "version": "3.4.35",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.35-build64/PokeChiacchere-v3.4.35-build64.ipa",
-          "size": 12438953,
-          "localizedDescription": "Versione 3.4.35"
-        },
-        {
-          "version": "3.4.34",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.34-build63/PokeChiacchere-v3.4.34-build63.ipa",
-          "size": 12439175,
-          "localizedDescription": "Versione 3.4.34"
-        },
-        {
-          "version": "3.4.33",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.33-build62/PokeChiacchere-v3.4.33-build62.ipa",
-          "size": 12439010,
-          "localizedDescription": "Versione 3.4.33"
-        },
-        {
-          "version": "3.4.32",
-          "date": "2026-10-19",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.32-build61/PokeChiacchere-v3.4.32-build61.ipa",
-          "size": 12438045,
-          "localizedDescription": "Versione 3.4.32"
-        },
-        {
-          "version": "3.4.31",
-          "date": "2026-10-18",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.31-build60/PokeChiacchere-v3.4.31-build60.ipa",
-          "size": 12433130,
-          "localizedDescription": "Versione 3.4.31"
-        },
-        {
-          "version": "3.4.30",
-          "date": "2026-10-18",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.30-build59/PokeChiacchere-v3.4.30-build59.ipa",
-          "size": 12433133,
-          "localizedDescription": "Versione 3.4.30"
-        },
-        {
-          "version": "3.4.29",
-          "date": "2026-10-18",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.29-build58/PokeChiacchere-v3.4.29-build58.ipa",
-          "size": 12433133,
-          "localizedDescription": "Versione 3.4.29"
-        },
-        {
-          "version": "3.4.28",
-          "date": "2026-10-18",
-          "downloadURL": "https://github.com/Poggix/PokeChiacchere-APP/releases/download/v3.4.28-build57/PokeChiacchere-v3.4.28-build57.ipa",
-          "size": 1,
-          "localizedDescription": "Versione 3.4.28 build 57"
         }
-      ]
+      ],
+      "permissions": []
     }
-  ]
+  ],
+  "news": []
 }
